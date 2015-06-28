@@ -86,7 +86,7 @@ int main()
 	}
 	std::atomic_int free_thread_count;
 	free_thread_count.store(0);
-	alsm_server<DeviceType::CPU,double> server(free_thread_count, update_recieved, work_finished,CLIENT_NUM,2,1000,ARRAY_SIZE ,cpu_stream_5);
+	alsm_server<DeviceType::CPU,double> server(free_thread_count, update_recieved, work_finished,CLIENT_NUM,2,100,ARRAY_SIZE ,cpu_stream_5);
 	alsm_client<DeviceType::CPU, double> cpu_client_1(work_finished, update_recieved[0], free_thread_count,1,ARRAY_SIZE,ARRAY_SIZE,FunctionObj<double>(UnaryFunc::Abs),cpu_stream_1);
 	alsm_client<DeviceType::CPU, double> cpu_client_2(work_finished, update_recieved[1], free_thread_count,2, ARRAY_SIZE, ARRAY_SIZE, FunctionObj<double>(UnaryFunc::Abs), cpu_stream_2);
 	alsm_client<DeviceType::CPU, double> cpu_client_3(work_finished, update_recieved[2], free_thread_count, 3,ARRAY_SIZE, ARRAY_SIZE, FunctionObj<double>(UnaryFunc::Abs), cpu_stream_3);
@@ -104,7 +104,7 @@ int main()
 		}
 	}
 	server.init_problem(host_residual, client_opt, client_eta_nrm, host_b, &beta,client_beta, host_lambda_hat, host_lambda, total_residual);
-	server.init_parameter(0.001, 0.001, 100, 1.2);
+	server.init_parameter(0.001, 0.001,0.01, 100, 1.2);
 	//server.set_debug_file(debug_file);
 	cpu_client_1.init_problem(true,MatrixMemOrd::COL,Matrix[0],  client_x[0], client_v[0], client_beta + 0,client_lambda[0],client_residual[0],5);
 	cpu_client_2.init_problem(true, MatrixMemOrd::COL, Matrix[1], client_x[1], client_v[1], client_beta + 1, client_lambda[1], client_residual[1], 5);
