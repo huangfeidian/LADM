@@ -7,58 +7,44 @@
 
 namespace alsm
 {
-	//copy
-	template< DeviceType D, typename T> void send_to_host(const stream<D>& stream, int n, const T* device_x, T* host_y);
+//copy
+	template< DeviceType D, typename T> void copy(const stream<D>& stream, int n, const T* from_x, T* to_y);
 #if ALSM_USE_CPU
 	template<>
-	__INLINE__ void send_to_host<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, int n, const float* x, float* y)
-	{
-		cblas_scopy(n, x, 1, y, 1);
+	__INLINE__ void copy<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, int n, const float* from_x, float* to_y)
+	{ 
+		if (from_x != to_y)
+		{
+			cblas_scopy(n, from_x, 1, to_y, 1);
+		}
+		
 	}
 	template<>
-	__INLINE__ void send_to_host<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, int n, const double* x, double* y)
+	__INLINE__ void copy<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, int n, const double* from_x, double* to_y)
 	{
 
-		cblas_dcopy(n, x, 1, y, 1);
+		if (from_x != to_y)
+		{
+			cblas_dcopy(n, from_x, 1, to_y, 1);
+		}
 	}
 #endif
 #if ALSM_USE_GPU
 	template<>
-	__INLINE__ void send_to_host<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, int n, const float* x, float* y)
+	__INLINE__ void copy<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, int n, const float* from_x, float* to_y)
 	{
-		CUDA_CHECK_ERR(cudaMemcpy(y, x, sizeof(float)*n, cudaMemcpyDeviceToHost));
-
+		if (from_x != to_y)
+		{
+			CUBLAS_CHECK_ERR(cublasScopy(stream.local_handle, n, from_x, 1, to_y, 1));
+		}
 	}
 	template<>
-	__INLINE__ void send_to_host<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, int n, const double* x, double* y)
+	__INLINE__ void copy<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, int n, const double* from_x, double* to_y)
 	{
-		CUDA_CHECK_ERR(cudaMemcpy(y, x, sizeof(double)*n, cudaMemcpyDeviceToHost));
-	}
-#endif
-	template< DeviceType D, typename T> void copy(const stream<D>& stream, int n, const T* x, T* y);
-#if ALSM_USE_CPU
-	template<>
-	__INLINE__ void copy<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, int n, const float* x, float* y)
-	{
-		cblas_scopy(n, x, 1, y, 1);
-	}
-	template<>
-	__INLINE__ void copy<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, int n, const double* x, double* y)
-	{
-
-		cblas_dcopy(n, x, 1, y, 1);
-	}
-#endif
-#if ALSM_USE_GPU
-	template<>
-	__INLINE__ void copy<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, int n, const float* x, float* y)
-	{
-		CUBLAS_CHECK_ERR(cublasScopy(stream.local_handle, n, x, 1, y, 1));
-	}
-	template<>
-	__INLINE__ void copy<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, int n, const double* x, double* y)
-	{
-		CUBLAS_CHECK_ERR(cublasDcopy(stream.local_handle, n, x, 1, y, 1));
+		if (from_x != to_y)
+		{
+			CUBLAS_CHECK_ERR(cublasDcopy(stream.local_handle, n, from_x, 1, to_y, 1));
+		}
 	}
 #endif
 	//swap
@@ -224,6 +210,34 @@ namespace alsm
 	__INLINE__ void nrm2<DeviceType::GPU, double>(const stream<DeviceType::GPU>& stream, int n, const double* x, double* result)
 	{
 		CUBLAS_CHECK_ERR(cublasDnrm2(stream.local_handle, n, x, 1, result));
+	}
+#endif
+	// norm 2
+	template< DeviceType D, typename T> void asum(const stream<D>& stream, int n, const T* x, T* result);
+#if ALSM_USE_CPU
+	template<>
+	__INLINE__ void asum<DeviceType::CPU, float>(const stream<DeviceType::CPU>& stream, int n, const float* x, float* result)
+	{
+		*result = cblas_sasum(n, x, 1);
+	}
+	template<>
+	__INLINE__ void asum<DeviceType::CPU, double>(const stream<DeviceType::CPU>& stream, int n, const double* x, double* result)
+	{
+		*result = cblas_dasum(n, x, 1);
+	}
+#endif
+
+#if ALSM_USE_GPU
+	template<>
+	__INLINE__ void asum<DeviceType::GPU, float>(const stream<DeviceType::GPU>& stream, int n, const float* x, float* result)
+	{
+		CUBLAS_CHECK_ERR(cublasSasum(stream.local_handle, n, x, 1, result));
+		//cudaDeviceSynchronize();
+	}
+	template<>
+	__INLINE__ void asum<DeviceType::GPU, double>(const stream<DeviceType::GPU>& stream, int n, const double* x, double* result)
+	{
+		CUBLAS_CHECK_ERR(cublasDasum(stream.local_handle, n, x, 1, result));
 	}
 #endif
 }

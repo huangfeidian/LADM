@@ -32,9 +32,9 @@ namespace alsm
 		stream<D> server_stream;
 #if FILE_DEBUG
 		FILE* scalar_info;
-		std::vector<FILE*> residual_info;
-		FILE* lambda_info;//for lambda het
-		FILE* total_residual_info;
+		//std::vector<FILE*> residual_info;
+		//FILE* lambda_info;//for lambda het
+		//FILE* total_residual_info;
 #endif
 	private:
 		inline void gather_residual()
@@ -43,30 +43,17 @@ namespace alsm
 			alsm_memset<D, T>(total_residual, 0, b_dimension);
 			for (int i = 0; i < client_number; i++)
 			{
-				for (int j = 0; j < 50; j++)
-				{
-					fprintf(residual_info[i], "%lf,", static_cast<double>(client_residual[i*b_dimension + j]));
-				}
-				fprintf(residual_info[i], "0\n");
+
 				axpy<D, T>(server_stream, b_dimension, &alpha, client_residual + i*b_dimension, total_residual);
 			}
 			alpha = static_cast<T>(-1);
 			axpy<D, T>(server_stream, b_dimension, &alpha, b, total_residual);
-			for (int i = 0; i < 50; i++)
-			{
-				fprintf(total_residual_info, "%lf,", total_residual[i]);
-			}
-			fprintf(total_residual_info, "0\n");
+
 		}
 		inline void update_lambda_hat()
 		{
 			copy<D, T>(server_stream, b_dimension, lambda, lambda_hat);
 			axpy<D, T>(server_stream, b_dimension, beta, total_residual, lambda_hat);
-			for (int i = 0; i < 50; i++)
-			{
-				fprintf(lambda_info, "%lf,", static_cast<double>(lambda_hat[i]));
-			}
-			fprintf(lambda_info, "0\n");
 		}
 		inline void update_lambda()
 		{
@@ -122,6 +109,7 @@ namespace alsm
 			{
 				*beta = beta_max;
 			}
+			
 #if FILE_DEBUG
 			fprintf(scalar_info, "%lf\n", static_cast<double>(*beta));
 #endif
@@ -138,13 +126,12 @@ namespace alsm
 		void output_train_result()
 		{
 			current_opt_value = static_cast<T>(0);
-			std::cout << "opt ";
+			std::cout << "opt£º ";
 			for (int i = 0; i < client_number; i++)
 			{
 				current_opt_value += client_opt_value[i];
-				std::cout << client_opt_value[i];
 			}
-			std::cout << std::endl;
+			std::cout <<current_opt_value<< std::endl;
 			//printf("beta %f eps1 %f eps2 %f   opt%f at %4d iter \n",static_cast<double>(*beta), static_cast<double>(current_eps1), static_cast<double>(current_eps2),
 			//	static_cast<double>(current_opt_value), current_iter);
 		}
@@ -157,7 +144,7 @@ namespace alsm
 		}
 		virtual void recieve()
 		{
-
+			
 		}
 	public:
 		alsm_server(std::atomic_int& in_free_thread_count, std::atomic_bool* in_update_recieved_vector,
@@ -195,9 +182,10 @@ namespace alsm
 		}
 		void set_debug_file()
 		{
+#if FILE_DEBUG
 			scalar_info =fopen("scalar_info.csv","wb");
-			lambda_info = fopen("lambda_info.csv", "wb");
-			total_residual_info = fopen("server_residual_info.csv", "wb");
+			//lambda_info = fopen("lambda_info.csv", "wb");
+			//total_residual_info = fopen("server_residual_info.csv", "wb");
 			for (int i = 0; i < client_number; i++)
 			{
 				fprintf(scalar_info, "eta_norm%d,", i);
@@ -208,21 +196,22 @@ namespace alsm
 				fprintf(scalar_info, "client_opt%d,", i);
 			}
 			fprintf(scalar_info, "max_eta_norm,total_residual_norm,current_opt_value,beta\n");
-			std::stringstream file_name_stream;
-			for (int i = 0; i < client_number; i++)
-			{
-				file_name_stream << "vector_file_" << i << ".csv" << std::endl;
-				std::string file_name;
-				file_name_stream >> file_name;
-				FILE* temp_file = fopen(file_name.c_str(), "wb");
-				residual_info.push_back(temp_file);
+			//std::stringstream file_name_stream;
+			//for (int i = 0; i < client_number; i++)
+			//{
+			//	file_name_stream << "vector_file_" << i << ".csv" << std::endl;
+			//	std::string file_name;
+			//	file_name_stream >> file_name;
+			//	FILE* temp_file = fopen(file_name.c_str(), "wb");
+			//	residual_info.push_back(temp_file);
 
-			}
+			//}
+#endif
 		}
 		~alsm_server()
 		{
 #if FILE_DEBUG
-			fclose(scalar_info);
+			//fclose(scalar_info);
 #endif
 		}
 	};
@@ -253,23 +242,46 @@ namespace alsm
 		void output(T* in_x)
 		{
 #if FILE_DEBUG
-			for (int i = 0; i < 10; i++)
-			{
-				fprintf(x_debug, "%lf,", static_cast<double>(in_x[i]));
-			}
-			fprintf(x_debug, "%lf\n", 0);
+			//for (int i = 0; i < 10; i++)
+			//{
+			//	fprintf(x_debug, "%lf,", static_cast<double>(in_x[i]));
+			//}
+			//fprintf(x_debug, "%lf\n", 0);
 #endif
 		}
 		virtual void recieve()
 		{
-			alsm_memcpy<D, T>(client_stream, lambda_hat, server_lambda_hat, b_dimension);
+			copy<D, T>(client_stream, b_dimension, server_lambda_hat,lambda_hat );
 			sigma = eta*(*client_beta);
 		}
 		virtual void send()
 		{
 			*server_eta_nrm = eta_norm;
 			*server_opt = opt_value;
-			alsm_memcpy<D, T>(client_stream, server_residual, residual, b_dimension);
+			copy<D, T>(client_stream, b_dimension, residual, server_residual);
+		}
+		virtual void  proximal_update()
+		{
+			T temp_lambda = 1 / sigma;
+			//BatchProxEval<D, T>(client_stream, func, x_dimension, sigma, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
+			for (int i = 0; i < x_dimension; i++)
+			{
+				if (fabsf(v[i]) <= temp_lambda)
+				{
+					x_2[i] = 0;
+				}
+				else
+				{
+					if (v[i]>0)
+					{
+						x_2[i] = v[i] - temp_lambda;
+					}
+					else
+					{
+						x_2[i] = v[i] + temp_lambda;
+					}
+				}
+			}
 		}
 		virtual void compute()
 		{
@@ -278,7 +290,7 @@ namespace alsm
 			T beta_zero = static_cast<T>(0);
 			if (IdentityMatrix)
 			{
-				alsm_memcpy<D, T>(client_stream, v, lambda_hat, b_dimension);
+				copy<D, T>(client_stream, b_dimension, lambda_hat, v);
 			}
 			else
 			{
@@ -290,6 +302,7 @@ namespace alsm
 			//output(v);
 			sigma /= 2;
 			//std::cout << "the sigma is " << sigma << std::endl;
+			//proximal_update();
 			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
 			//output(x_2);
 			alpha_one *= -1;
@@ -304,20 +317,35 @@ namespace alsm
 			alpha_one *= -1;
 			if (IdentityMatrix)
 			{
-				alsm_memcpy(client_stream, residual, x_1, b_dimension);
+				copy(client_stream, b_dimension, residual, x_1);
 			}
 			else
 			{
 				gemv<D, T>(client_stream, MatrixTrans::NORMAL, A_ord, b_dimension, x_dimension, &alpha_one, A, lda, x_1, &beta_zero, residual);//residual=A*x_1
 			}
-			BatchFuncEval<D, T>(client_stream, func, x_dimension, x_1,&opt_value);//eval{func{x_1}}
-			std::cout << opt_value << std::endl;
+			if (func.h == UnaryFunc::Abs)
+			{
+				asum<D, T>(client_stream, x_dimension, x_1, &opt_value);
+			}
+			else
+			{
+				if (func.h == UnaryFunc::Square)
+				{
+					nrm2<D, T>(client_stream, x_dimension, x_1, &opt_value);
+				}
+				else
+				{
+					BatchFuncEval<D, T>(client_stream, func, x_dimension, x_1, &opt_value);//eval{func{x_1}}
+				}
+			}
+			
+			//std::cout << opt_value << std::endl;
 			client_stream.sync();
 		}
 	public:
-		alsm_client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count,int in_index, int in_b_dimension, int in_x_dimension,
+		alsm_client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count,int in_wait_time,int in_index, int in_b_dimension, int in_x_dimension,
 			FunctionObj<T> in_func, stream<D>& in_stream)
-			:client(in_work_finished, in_update_recieved, in_free_thread_count,in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
+			:client(in_work_finished, in_update_recieved, in_free_thread_count,in_wait_time,in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
 		{
 
 		}
@@ -355,7 +383,7 @@ namespace alsm
 		~alsm_client()
 		{
 #if FILE_DEBUG
-			fclose(x_debug);
+			//fclose(x_debug);
 #endif
 		}
 	};

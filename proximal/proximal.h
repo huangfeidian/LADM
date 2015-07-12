@@ -122,7 +122,7 @@ namespace alsm
 			v_out[i] = SubgradEval<double>(f_obj, v_in[i], x_in[i]);
 		}
 	}
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 	extern void thrust_func_eval_s(const stream<DeviceType::GPU>& stream, const FunctionObj<float>  &f_obj, int size, const float *x_in,float* result);
 	template <>
 	__DEVICE__ void BatchFuncEval<DeviceType::GPU, float>(const stream<DeviceType::GPU>& stream, const FunctionObj<float>  &f_obj, int size, const float *x_in,float* result)

@@ -13,11 +13,12 @@ namespace alsm
 		std::atomic_int& ready_thread_count;
 		std::atomic_bool& update_recieved;
 		std::atomic_bool& work_finished;
+		const std::chrono::nanoseconds wait_time;
 		void recieve_sync()
 		{
 			while (!update_recieved.load())
 			{
-				// busy loop
+				//std::this_thread::sleep_for(wait_time);
 			}
 			update_recieved.store(false);
 		}
@@ -33,8 +34,8 @@ namespace alsm
 		virtual void send() = 0;
 	public:
 		int index;
-		client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count,int in_index)
-			:work_finished(in_work_finished), update_recieved(in_update_recieved), ready_thread_count(in_free_thread_count), index(in_index)
+		client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count,int in_wait_time,int in_index)
+			:work_finished(in_work_finished), update_recieved(in_update_recieved), ready_thread_count(in_free_thread_count),wait_time(in_wait_time), index(in_index)
 		{
 
 		}
@@ -49,7 +50,7 @@ namespace alsm
 				send_sync();
 				recieve_sync();
 			}
-
+			send_sync();
 		}
 	};
 	class server
@@ -58,7 +59,7 @@ namespace alsm
 		std::atomic_int& ready_thread_count;
 		std::atomic_bool* update_recieved_vector;
 		
-		const std::chrono::microseconds wait_time;
+		const std::chrono::nanoseconds wait_time;
 	public:
 		std::atomic_bool& work_finished;
 		const int client_number;
@@ -75,9 +76,9 @@ namespace alsm
 		virtual void compute() = 0;
 		void recieve_sync()
 		{
-			while (ready_thread_count != client_number)
+			while (ready_thread_count.load() != client_number)
 			{
-				std::this_thread::sleep_for(wait_time);
+				//std::this_thread::sleep_for(wait_time);
 			}
 			ready_thread_count.store(0);
 		}
@@ -99,14 +100,14 @@ namespace alsm
 				recieve();
 				compute();
 				current_iter++;
-				if (current_iter > max_iter)
+				if (current_iter == max_iter)
 				{
 					fprintf(stdout, " max iteration %d is exceed\n", max_iter);
 					work_finished.store(true);
 				}
 			}
 			send_sync();
-			//recieve_sync();
+			recieve_sync();
 		}
 	};
 }

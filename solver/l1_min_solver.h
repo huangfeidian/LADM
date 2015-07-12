@@ -3,7 +3,7 @@
 #ifndef _H_L1_MIN_SOLVER_H_
 #define _H_L1_MIN_SOLVER_H_
 #include "alsm_solver.h"
-#include "../lapack/lapack.h"
+//#include "../lapack/lapack.h"
 #include <array>
 namespace alsm
 {
@@ -38,8 +38,8 @@ namespace alsm
 	public:
 		l1_solver(std::array<stream<D>, 3> three_stream, int in_b_dimension, int in_x_dimension, int in_max_iter, int in_wait_ms)
 			: x_dimension(in_x_dimension), b_dimension(in_b_dimension), wait_time(in_wait_ms), streams(three_stream),
-			e_client(work_finished, update_recieve[0], ready_thread_count, 0, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
-			x_client(work_finished, update_recieve[1], ready_thread_count, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
+			e_client(work_finished, update_recieve[0], ready_thread_count, in_wait_ms,0, in_b_dimension, in_b_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
+			x_client(work_finished, update_recieve[1], ready_thread_count,in_wait_ms, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
 			server(ready_thread_count, &update_recieve[0], work_finished,2, in_wait_ms, in_max_iter, in_b_dimension, three_stream[2])
 		{
 			ready_thread_count.store(0);
@@ -53,6 +53,8 @@ namespace alsm
 	public:
 		void init_memory()
 		{
+			A = alsm_malloc<D, T>(b_dimension*x_dimension);
+			b = alsm_malloc<D, T>(b_dimension);
 			client_residual[0] = alsm_malloc<D, T>(b_dimension * 2);
 			alsm_memset<D, T>(client_residual[0], 0, 2 * b_dimension);
 			client_residual[1] = client_residual[0] + b_dimension;
@@ -81,31 +83,39 @@ namespace alsm
 			T alpha_neg_one = -1.0;
 			T alpha_half = 0.5;
 			T max_sigular = 0.0;
-			A = in_A;
-			b = in_b;
+			alsm_fromcpu<D, T>(streams[2], A, in_A, b_dimension*x_dimension);
+			alsm_fromcpu<D, T>(streams[2], b, in_b, b_dimension);
 			int lda = (in_A_ord == MatrixMemOrd::ROW) ? x_dimension : b_dimension;
 			output_x = in_output_x;
 			output_e = in_output_e;
+			alsm_memset<D, T>(lambda[0], 0, 2*b_dimension);//lambda=0,lambda_hat=0;
+			alsm_memset<D, T>(server_residual, 0, b_dimension);
 			// a initial guess e by set e=1/2*b;
-			axpy<D, T>(streams[2],b_dimension, &alpha_half, in_b, e[0]);
-			alsm_memcpy<D, T>(streams[2], server_residual, e[0], b_dimension);
+			//axpy<D, T>(streams[2],b_dimension, &alpha_half, in_b, e[0]);
+			alsm_memset<D, T>(e[0], 0, b_dimension);//e=0
+			//alsm_memcpy<D, T>(streams[2], server_residual, e[0], b_dimension);
 			// a initial guess x by solving min(|2Ax-b|_2)
-			gels<D, T>(streams[2], in_A_ord, MatrixTrans::NORMAL, b_dimension, x_dimension, in_A, lda, e[0], x[0]);
+			//gels<D, T>(streams[2], in_A_ord, MatrixTrans::NORMAL, b_dimension, x_dimension, in_A, lda, e[0], x[0]);
+			alsm_memset<D, T>(x[0], 0, x_dimension);//x=0
 			//residual=Ax[0]+e[0]-b
-			gemv<D, T>(streams[2], MatrixTrans::NORMAL, in_A_ord, b_dimension, x_dimension, &alpha_one, in_A, lda, x[0], &alpha_one, server_residual);
-			axpy<D, T>(streams[2], b_dimension, &alpha_neg_one, b, server_residual);
-			svds_max<D,T>(streams[2], in_A_ord, b_dimension, x_dimension, A, lda, &max_sigular);
-
-			//max_sigular = 20;
-			e_client.init_problem(true,in_A_ord,A, e[0], e[2], &beta[0], lambda[1], client_residual[0],3);//for e the sigular is 1 so we just make it 3
-			x_client.init_problem(false,in_A_ord,A, x[0], x[2], &beta[1], lambda[1], client_residual[1],3*max_sigular);
-			server.init_problem(client_residual[0], opt, eta_norm, b, &beta[2] , &beta[0], lambda[1], lambda[0], server_residual);
+			//gemv<D, T>(streams[2], MatrixTrans::NORMAL, in_A_ord, b_dimension, x_dimension, &alpha_one, in_A, lda, x[0], &alpha_one, server_residual);
 			
+			
+			//max_sigular=norm2(A)^2*2
+			//svds_max<D,T>(streams[2], in_A_ord, b_dimension, x_dimension, A, lda, &max_sigular);
+			nrm2<D, T>(streams[2], x_dimension*b_dimension, A, &max_sigular);
+			max_sigular = max_sigular*max_sigular * 2;
+			//max_sigular = 20;
+			e_client.init_problem(true,in_A_ord,A, e[0], e[2], &beta[0], lambda[1], client_residual[0],2);//for e the sigular is 1 so we just make it 3
+			x_client.init_problem(false,in_A_ord,A, x[0], x[2], &beta[1], lambda[1], client_residual[1],max_sigular);
+			server.init_problem(client_residual[0], opt, eta_norm, b, &beta[2] , &beta[0], lambda[1], lambda[0], server_residual);
 			e_client.connect_server(eta_norm + 0, opt + 0, client_residual[0], lambda[1]);
 			x_client.connect_server(eta_norm + 1, opt + 1, client_residual[1], lambda[1]);
 		}
 		void solve()
 		{
+			T neg_beta = -1 * beta[2];
+			axpy<D, T>(streams[2], b_dimension, &neg_beta, b, lambda[1]);//lambda_hat=-beta*b;
 			std::vector<std::thread> all_threads;
 			all_threads.emplace_back(&alsm_server<D, T>::work, &server);
 			all_threads.emplace_back(&alsm_client<D, T>::work, &e_client);
@@ -114,8 +124,8 @@ namespace alsm
 			{
 				i.join();
 			}
-			alsm_memcpy<D, T>(streams[0], output_e, e[0], b_dimension);
-			alsm_memcpy<D, T>(streams[1], output_x, x[0], x_dimension);
+			alsm_tocpu<D, T>(streams[0], output_e, e[0], b_dimension);
+			alsm_tocpu<D, T>(streams[1], output_x, x[0], x_dimension);
 		}
 	};
 }

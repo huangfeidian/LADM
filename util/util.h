@@ -140,7 +140,7 @@
 		    } \
       } while (0)
 
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 #define CUDA_CHECK_ERR(a) \
   do { \
     cudaError_t err = a; \
@@ -380,7 +380,7 @@ __DEVICE__ const char* cublasGetErrorString(cublasStatus_t status)
 		    } \
       } while (0)
 
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 #define DEBUG_CUDA_CHECK_ERR() \
   do { \
     cudaError_t err = cudaGetLastError(); \

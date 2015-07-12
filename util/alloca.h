@@ -35,7 +35,7 @@ namespace alsm
 		float* return_ptr = reinterpret_cast<float*>(aligned_malloc(sizeof(float)*memory_size, ALIGNBLOCK));
 		return return_ptr;
 	}
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 	template<> float* alsm_malloc<DeviceType::GPU, float>(size_t memory_size)
 	{
 		float* return_ptr;
@@ -67,7 +67,7 @@ namespace alsm
 		free(real_adr);;
 		mem_map.erase(reinterpret_cast<uint64_t>(input_ptr));
 	}
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 	template<> void alsm_free<DeviceType::GPU, float>(float* input_ptr)
 	{
 		CUDA_CHECK_ERR(cudaFree(input_ptr));
@@ -89,7 +89,7 @@ namespace alsm
 				free(reinterpret_cast<void*>(i.second.second));
 
 			}
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 			else
 			{
 				CUDA_CHECK_ERR(cudaFree(reinterpret_cast<void*>(i.first)));
@@ -108,7 +108,7 @@ namespace alsm
 	{
 		memset(dst, value, size*sizeof(double));
 	}
-#if ALSM_USE_CUDA
+#if ALSM_USE_GPU
 	template<> void alsm_memset<DeviceType::GPU, float>(float* dst, int value, int size)
 	{
 		CUDA_CHECK_ERR(cudaMemset(dst, value, size*sizeof(float)));
@@ -118,8 +118,44 @@ namespace alsm
 		CUDA_CHECK_ERR(cudaMemset(dst, value, size*sizeof(double)));
 	}
 #endif
-	template< DeviceType D, typename T> void alsm_memcpy(const stream<D>& stream, T* dst_y, const T* from_x, int n);
-	template<> void alsm_memcpy<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, float* dst_y, const float* from_x, int n)
+//	template< DeviceType D, typename T> void alsm_memcpy(const stream<D>& stream, T* dst_y, const T* from_x, int n);
+//	template<> void alsm_memcpy<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, float* dst_y, const float* from_x, int n)
+//	{
+//		if (dst_y != from_x)
+//		{
+//			memcpy(dst_y, from_x, sizeof(float)*n);
+//		}
+//
+//
+//	}
+//	template<> void alsm_memcpy<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, double* dst_y, const double* from_x, int n)
+//	{
+//		if (dst_y != from_x)
+//		{
+//			memcpy(dst_y, from_x, sizeof(double)*n);
+//		}
+//
+//	}
+//#if ALSM_USE_GPU
+//	template<> void alsm_memcpy<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, float* dst_y, const float* from_x, int n)
+//	{
+//		if (dst_y != from_x)
+//		{
+//			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(float)*n, cudaMemcpyDeviceToDevice));
+//		}
+//
+//	}
+//	template<> void alsm_memcpy<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, double* dst_y, const double* from_x, int n)
+//	{
+//		if (dst_y != from_x)
+//		{
+//			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(double)*n, cudaMemcpyDeviceToDevice));
+//		}
+//
+//	}
+//#endif
+	template< DeviceType D, typename T> void alsm_tocpu(const stream<D>& stream, T* dst_y, const T* from_x, int n);
+	template<> void alsm_tocpu<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, float* dst_y, const float* from_x, int n)
 	{
 		if (dst_y != from_x)
 		{
@@ -128,7 +164,7 @@ namespace alsm
 
 
 	}
-	template<> void alsm_memcpy<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, double* dst_y, const double* from_x, int n)
+	template<> void alsm_tocpu<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, double* dst_y, const double* from_x, int n)
 	{
 		if (dst_y != from_x)
 		{
@@ -136,22 +172,56 @@ namespace alsm
 		}
 
 	}
-#if ALSM_USE_CUDA
-	template<> void alsm_memcpy<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, float* dst_y, const float* from_x, int n)
+#if ALSM_USE_GPU
+	template<> void alsm_tocpu<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, float* dst_y, const float* from_x, int n)
 	{
 		if (dst_y != from_x)
 		{
-			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(float)*n, cudaMemcpyDeviceToDevice));
+			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(float)*n, cudaMemcpyDeviceToHost));
 		}
 
 	}
-	template<> void alsm_memcpy<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, double* dst_y, const double* from_x, int n)
+	template<> void alsm_tocpu<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, double* dst_y, const double* from_x, int n)
 	{
 		if (dst_y != from_x)
 		{
-			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(double)*n, cudaMemcpyDeviceToDevice));
+			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(double)*n, cudaMemcpyDeviceToHost));
+		}
+	}
+#endif
+	template< DeviceType D, typename T> void alsm_fromcpu(const stream<D>& stream, T* dst_y, const T* from_x, int n);
+	template<> void alsm_fromcpu<DeviceType::CPU, float >(const stream<DeviceType::CPU>& stream, float* dst_y, const float* from_x, int n)
+	{
+		if (dst_y != from_x)
+		{
+			memcpy(dst_y, from_x, sizeof(float)*n);
 		}
 
+
+	}
+	template<> void alsm_fromcpu<DeviceType::CPU, double >(const stream<DeviceType::CPU>& stream, double* dst_y, const double* from_x, int n)
+	{
+		if (dst_y != from_x)
+		{
+			memcpy(dst_y, from_x, sizeof(double)*n);
+		}
+
+	}
+#if ALSM_USE_GPU
+	template<> void alsm_fromcpu<DeviceType::GPU, float >(const stream<DeviceType::GPU>& stream, float* dst_y, const float* from_x, int n)
+	{
+		if (dst_y != from_x)
+		{
+			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(float)*n, cudaMemcpyHostToDevice));
+		}
+
+	}
+	template<> void alsm_fromcpu<DeviceType::GPU, double >(const stream<DeviceType::GPU>& stream, double* dst_y, const double* from_x, int n)
+	{
+		if (dst_y != from_x)
+		{
+			CUDA_CHECK_ERR(cudaMemcpy(dst_y, from_x, sizeof(double)*n, cudaMemcpyHostToDevice));
+		}
 	}
 #endif
 }
