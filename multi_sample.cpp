@@ -1,17 +1,17 @@
-#include "solver/seq_l1.h"
+#include "solver/multi_para.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
 #include <string>
 
 using namespace alsm;
-void load_data(float* A, float* b,int m,int n, std::string A_file, std::string b_file)
+void load_data(float* A, float* b, int m, int n, std::string A_file, std::string b_file)
 {
 	std::ifstream A_stream(A_file);
 	std::ifstream B_stream(b_file);
 	for (int i = 0; i < m; i++)
 	{
-		B_stream >> *(b+i);
+		B_stream >> *(b + i);
 	}
 	for (int i = 0; i < n; i++)
 	{
@@ -50,10 +50,10 @@ float normal_matrix(float* A, int m, int n)//A is col first
 int main()
 {
 	//m row n column
-	
+
 	int alg = 3;
-	int m = 1024*10;
-	int n = 32 * 10*10;
+	int m = 1024 ;
+	int n = 32 * 10 ;
 	int maxIterInner = 50;
 	int maxIterOuter = 5000;
 	float sparsity = 0.1;
@@ -70,9 +70,13 @@ int main()
 	float *x = new float[n];
 	float *xG = new float[n];
 	float *e = new float[m];
-	float *output_e=new float[m];
+	float *output_e = new float[m];
 	float* output_x = new float[n];
-	float original_opt=0;
+	memset(output_e, 0, sizeof(float)*m);
+	memset(output_x, 0, sizeof(float)*n);
+	float* lambda = new float[m];
+	memset(lambda, 0, sizeof(float)*m);
+	float original_opt = 0;
 	float diffX;
 	float diffE;
 	float normX;
@@ -87,7 +91,7 @@ int main()
 		for (int j = 0; j < n; j++)
 		{
 			col_first_A[j*m + i] = (float)1.0 * (rand() - rand()) / 100;
-			
+
 		}
 	}
 	normA = normal_matrix(col_first_A, m, n);
@@ -147,7 +151,7 @@ int main()
 	stream<DeviceType::CPU> main_cpu_stream;
 	float one = 1.0;
 	//b=yk+A*xG
-	gemv<DeviceType::CPU,float>(main_cpu_stream,MatrixTrans::NORMAL,MatrixMemOrd::COL, m, n,&one, col_first_A, m, xG, &one, b);
+	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, &one, col_first_A, m, xG, &one, b);
 	for (int i = 0; i < m; i++)
 	{
 		normB += b[i] * b[i];
@@ -173,20 +177,19 @@ int main()
 	//{
 	//	fprintf(b_out, "%f ", b[i]);
 	//}
-	std::array<stream<DeviceType::GPU>, 3> streams{};
-	for (int i = 0; i < 3; i++)
-	{
-		cudaStream_t temp_stream;
-		cudaStreamCreate(&temp_stream);
-		streams[i] = stream<DeviceType::GPU>(temp_stream);
-	}
-	seq_l1<DeviceType::GPU, float> solver(streams, m, n, 2000, 10);
+	std::array<stream<DeviceType::CPU>, 3> streams{};
+	//for (int i = 0; i < 3; i++)
+	//{
+	//	cudaStream_t temp_stream;
+	//	cudaStreamCreate(&temp_stream);
+	//	streams[i] = stream<DeviceType::CPU>(temp_stream);
+	//}
+	multi_para<DeviceType::CPU, float> solver(streams[0], 2, m, 5, 10);
 	solver.init_memory();
-	solver.init_problem(MatrixMemOrd::COL, col_first_A, b, output_x, output_e);
-	solver.init_parameter(0.01, 0.01, 10, 1000, 1.1);
-	
-	
-	
+	solver.init_server(streams[0], b, lambda);
+	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);
+	solver.add_client(streams[2], n, FunctionObj<float>(UnaryFunc::Abs), col_first_A, false, MatrixMemOrd::COL, output_x);
+	solver.init_parameter(0.01, 0.01, 3, 1000, 1.1);
 	auto begin = std::chrono::high_resolution_clock::now();
 	solver.solve();
 	auto end = std::chrono::high_resolution_clock::now();
@@ -206,9 +209,9 @@ int main()
 	float neg_one = -1;
 	axpy<DeviceType::CPU, float>(main_cpu_stream, m, &neg_one, b, output_e);
 	float error = 0;
-	nrm2<DeviceType::CPU, float>(main_cpu_stream, m,output_e, &error);
+	nrm2<DeviceType::CPU, float>(main_cpu_stream, m, output_e, &error);
 	std::chrono::duration<float, std::milli> elapsed = end - begin;
-	std::cout << "the opt is " << opt << " error is "<<error<<" time is " << elapsed.count() << std::endl;
+	std::cout << "the opt is " << opt << " error is " << error << " time is " << elapsed.count() << std::endl;
 	//printf("the l1 diffx norm is %f, the l1 diffe norm is %f the opt is %f time is %dms\n", diffX, diffE,opt,end-begin);
 	alsm_free_all();
 }
