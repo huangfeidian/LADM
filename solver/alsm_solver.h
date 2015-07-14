@@ -36,7 +36,7 @@ namespace alsm
 		//FILE* lambda_info;//for lambda het
 		//FILE* total_residual_info;
 #endif
-	private:
+	public:
 		inline void gather_residual()
 		{
 			T alpha = static_cast<T>(1);
@@ -238,7 +238,7 @@ namespace alsm
 #if FILE_DEBUG
 		FILE* x_debug;
 #endif
-	private:
+	public:
 		void output(T* in_x)
 		{
 #if FILE_DEBUG
@@ -287,6 +287,7 @@ namespace alsm
 		{
 			output(x_1);
 			T alpha_one = static_cast<T>(1);
+			T alpha_neg_one = static_cast<T>(-1);
 			T beta_zero = static_cast<T>(0);
 			if (IdentityMatrix)
 			{
@@ -302,11 +303,10 @@ namespace alsm
 			//output(v);
 			sigma /= 2;
 			//std::cout << "the sigma is " << sigma << std::endl;
-			//proximal_update();
+
 			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
 			//output(x_2);
-			alpha_one *= -1;
-			axpy<D, T>(client_stream, x_dimension, &alpha_one, x_2, x_1);//x_1=x_1-x_2;
+			axpy<D, T>(client_stream, x_dimension, &alpha_neg_one, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
 			nrm2<D, T>(client_stream, x_dimension, x_1, &eta_norm);//eta_norm=nrm{x_1-x_2}
 			eta_norm *= sqrt(eta);//eta_norm=nrm{x_1-x_2}*\sqrt{eta}
@@ -314,10 +314,9 @@ namespace alsm
 			std::swap(x_1, x_2);//x_1=x_2;
 			//output(x_1);
 			client_stream.sync();
-			alpha_one *= -1;
 			if (IdentityMatrix)
 			{
-				copy(client_stream, b_dimension, residual, x_1);
+				copy(client_stream, b_dimension, x_1, residual);
 			}
 			else
 			{

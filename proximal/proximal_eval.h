@@ -23,7 +23,7 @@ namespace alsm
 		// where Prox{.} is the proximal operator with penalty parameter rho.
 		using namespace functions;
 		template <typename T>
-		__DEVICE__ inline T ProxAbs(T v, T rho)
+		__DEVICE__  T ProxAbs(T v, T rho)
 		{
 			T a = MaxPos(v - 1/rho);
 			T b = MaxNeg(v + 1 / rho);
@@ -32,7 +32,7 @@ namespace alsm
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxNegEntr(T v, T rho)
+		__DEVICE__  T ProxNegEntr(T v, T rho)
 		{
 			// Use double precision.
 			return static_cast<T>(
@@ -41,50 +41,50 @@ namespace alsm
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxExp(T v, T rho)
+		__DEVICE__  T ProxExp(T v, T rho)
 		{
 			return v - static_cast<T>(
 				LambertWExp<double>(static_cast<double>(v - Log(rho))));
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxHuber(T v, T rho)
+		__DEVICE__  T ProxHuber(T v, T rho)
 		{
 			return Abs(v) < 1 + 1 / rho ? v * rho / (1 + rho) : v - Sign(v) / rho;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxIdentity(T v, T rho)
+		__DEVICE__  T ProxIdentity(T v, T rho)
 		{
 			return v - 1 / rho;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxIndBox01(T v, T rho)
+		__DEVICE__  T ProxIndBox01(T v, T rho)
 		{
 			return v <= 0 ? 0 : v >= 1 ? 1 : v;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxIndEq0(T v, T rho)
+		__DEVICE__  T ProxIndEq0(T v, T rho)
 		{
 			return 0;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxIndGe0(T v, T rho)
+		__DEVICE__  T ProxIndGe0(T v, T rho)
 		{
 			return v <= 0 ? 0 : v;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxIndLe0(T v, T rho)
+		__DEVICE__  T ProxIndLe0(T v, T rho)
 		{
 			return v >= 0 ? 0 : v;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxLogistic(T v, T rho)
+		__DEVICE__  T ProxLogistic(T v, T rho)
 		{
 			// Initial guess based on piecewise approximation.
 			T x;
@@ -131,40 +131,40 @@ namespace alsm
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxMaxNeg0(T v, T rho)
+		__DEVICE__  T ProxMaxNeg0(T v, T rho)
 		{
 			T z = v >= 0 ? v : 0;
 			return v + 1 / rho <= 0 ? v + 1 / rho : z;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxMaxPos0(T v, T rho)
+		__DEVICE__  T ProxMaxPos0(T v, T rho)
 		{
 			T z = v <= 0 ? v : 0;
 			return v >= 1 / rho ? v - 1 / rho : z;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxNegLog(T v, T rho)
+		__DEVICE__  T ProxNegLog(T v, T rho)
 		{
 			return (v + Sqrt(v * v + 4 / rho)) / 2;
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxRecipr(T v, T rho)
+		__DEVICE__  T ProxRecipr(T v, T rho)
 		{
 			v = Max(v, static_cast<T>(0));
 			return CubicSolve(-v, static_cast<T>(0), -1 / rho);
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxSquare(T v, T rho)
+		__DEVICE__  T ProxSquare(T v, T rho)
 		{
 			return rho * v / (1 + rho);
 		}
 
 		template <typename T>
-		__DEVICE__ inline T ProxZero(T v, T rho)
+		__DEVICE__  T ProxZero(T v, T rho)
 		{
 			return v;
 		}

@@ -9,7 +9,7 @@ namespace alsm
 
 	class client
 	{
-	private:
+	public:
 		std::atomic_int& ready_thread_count;
 		std::atomic_bool& update_recieved;
 		std::atomic_bool& work_finished;
@@ -65,7 +65,7 @@ namespace alsm
 		const int client_number;
 		const int max_iter;
 		int current_iter;
-	private:
+	public:
 		void send_sync()
 		{
 			for (int i = 0; i < client_number; i++)

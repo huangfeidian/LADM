@@ -1,4 +1,4 @@
-#include "solver/l1_min_solver.h"
+#include "solver/seq_l1.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -21,20 +21,46 @@ void load_data(float* A, float* b,int m,int n, std::string A_file, std::string b
 		}
 	}
 }
+float normal_matrix(float* A, int m, int n)//A is col first
+{
+	float normA = 0;
+	for (int i = 0; i < m; i++)//the A is col first stored
+	{
+		normA = 0;
+		for (int j = 0; j < n; j++)//normalize every row's l2 norm to 1
+		{
+			normA += A[j*m + i] * A[j*m + i];
+		}
+		normA = sqrt(normA);
+		for (int j = 0; j < n; j++)
+		{
+			A[j*m + i] = (float) (A[j*m + i] / normA);
+		}
+	}
+	normA = 0;
+	for (int i = 0; i < m; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			normA += A[j*m + i] * A[j*m + i];
+		}
+	}
+	return normA;
+}
 int main()
 {
 	//m row n column
 	
 	int alg = 3;
-	int m = 1024*10*2;
-	int n = 32 * 10*10*2;
+	int m = 1024*10;
+	int n = 32 * 10*10;
 	int maxIterInner = 50;
 	int maxIterOuter = 5000;
-	float sparsity = 0.3;
+	float sparsity = 0.1;
 	float tol = 0.01;
 	float tol_int = 0.01;
 	int iter;
-	int seed = 227;
+	int seed = 100;
 
 	srand(seed);
 
@@ -58,26 +84,13 @@ int main()
 	normYk = 0;
 	for (int i = 0; i < m; i++)//the A is row first stored
 	{
-		normA = 0;
-		for (int j = 0; j < n; j++)//normalize every row's l2 norm to 1
+		for (int j = 0; j < n; j++)
 		{
 			col_first_A[j*m + i] = (float)1.0 * (rand() - rand()) / 100;
-			normA += col_first_A[j*m + i] * col_first_A[j*m + i];
-		}
-		normA = sqrt(normA);
-		for (int j = 0; j < n; j++)
-		{
-			col_first_A[j*m + i] = (float)(col_first_A[j*m + i] / normA);
+			
 		}
 	}
-	normA = 0;
-	for (int i = 0; i < m; i++)
-	{
-		for (int j = 0; j < n; j++)
-		{
-			normA += col_first_A[j*m + i] * col_first_A[j*m + i];
-		}
-	}
+	normA = normal_matrix(col_first_A, m, n);
 	normX0 = 0;
 	for (int j = 0; j < n; j++)
 	{
@@ -160,17 +173,17 @@ int main()
 	//{
 	//	fprintf(b_out, "%f ", b[i]);
 	//}
-	std::array<stream<DeviceType::GPU>,3> streams;
+	std::array<stream<DeviceType::GPU>, 3> streams{};
 	for (int i = 0; i < 3; i++)
 	{
 		cudaStream_t temp_stream;
 		cudaStreamCreate(&temp_stream);
 		streams[i] = stream<DeviceType::GPU>(temp_stream);
 	}
-	l1_solver<DeviceType::GPU, float> solver(streams, m, n, 4000, 10);
+	seq_l1<DeviceType::GPU, float> solver(streams, m, n, 5000, 10);
 	solver.init_memory();
 	solver.init_problem(MatrixMemOrd::COL, col_first_A, b, output_x, output_e);
-	solver.init_parameter(0.01, 0.05, 1, 1000, 1.1);
+	solver.init_parameter(0.01, 0.01, 2, 1000, 1.1);
 	
 	
 	
@@ -182,13 +195,11 @@ int main()
 	for (int i = 0; i < n; i++)
 	{
 
-		//diffX += fabsf(output_x[i] - xG[i]);
 		opt += output_x[i];
 	}
 	diffE = 0;
 	for (int i = 0; i < m; i++)
 	{
-		//diffE += fabsf(output_e[i] - yk[i]);
 		opt += fabsf(output_e[i]);
 	}
 	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, &one, col_first_A, m, output_x, &one, output_e);
@@ -196,7 +207,7 @@ int main()
 	axpy<DeviceType::CPU, float>(main_cpu_stream, m, &neg_one, b, output_e);
 	float error = 0;
 	nrm2<DeviceType::CPU, float>(main_cpu_stream, m,output_e, &error);
-	std::chrono::duration<double, std::milli> elapsed = end - begin;
+	std::chrono::duration<float, std::milli> elapsed = end - begin;
 	std::cout << "the opt is " << opt << " error is "<<error<<" time is " << elapsed.count() << std::endl;
 	//printf("the l1 diffx norm is %f, the l1 diffe norm is %f the opt is %f time is %dms\n", diffX, diffE,opt,end-begin);
 	alsm_free_all();

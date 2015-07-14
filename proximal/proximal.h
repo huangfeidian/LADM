@@ -32,7 +32,7 @@ namespace alsm
 #if ALSM_USE_OMP
 #pragma omp parallel for
 #endif
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			x_out[i] = ProxEval<float>(f_obj, x_in[i], rho);
 		}
@@ -48,7 +48,7 @@ namespace alsm
 #endif
 		//printf(" the rho is %lf\n", rho);
 		//printf("a:%lf'\tb:%lf\tc:%lf\td:%lf\te:%lf\n", f_obj.a, f_obj.b, f_obj.c, f_obj.d, f_obj.e);
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			x_out[i] = ProxEval<double>(f_obj, x_in[i], rho);
 			//printf("%lf,", x_out[i]);
@@ -69,7 +69,7 @@ namespace alsm
 #if ALSM_USE_OMP
 #pragma omp parallel for reduction(+:sum)
 #endif
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			sum += FuncEval<float>(f_obj, x_in[i]);
 		}
@@ -82,7 +82,7 @@ namespace alsm
 #if ALSM_USE_OMP
 #pragma omp parallel for reduction(+:sum)
 #endif
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			sum += FuncEval<double>(f_obj, x_in[i]);
 		}
@@ -105,7 +105,7 @@ namespace alsm
 #if ALSM_USE_OMP
 #pragma omp parallel for
 #endif
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			v_out[i] = SubgradEval<float>(f_obj, v_in[i], x_in[i]);
 		}
@@ -117,7 +117,7 @@ namespace alsm
 #if ALSM_USE_OMP
 #pragma omp parallel for
 #endif
-		for (unsigned int i = 0; i < size; ++i)
+		for (int i = 0; i < size; ++i)
 		{
 			v_out[i] = SubgradEval<double>(f_obj, v_in[i], x_in[i]);
 		}

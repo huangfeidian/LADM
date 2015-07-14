@@ -20,7 +20,7 @@ namespace alsm
 		uint64_t alloca_size = size + aligned_size - 1;
 		uint64_t real_adr = reinterpret_cast<uint64_t>(malloc(alloca_size));
 		uint64_t aligned_adr = ((real_adr + aligned_size - 1) / aligned_size)*aligned_size;
-		printf("malloc %d byte aligned by %d : the return is %x while the origin is %x\n", size, aligned_size, aligned_adr, real_adr);
+		//printf("malloc %d byte aligned by %d : the return is %x while the origin is %x\n", size, aligned_size, aligned_adr, real_adr);
 		mem_map[aligned_adr] = std::make_pair(DeviceType::CPU, real_adr);
 		return reinterpret_cast<void*>(aligned_adr);
 	}
@@ -56,14 +56,14 @@ namespace alsm
 	template<> void alsm_free<DeviceType::CPU, float>(float* input_ptr)
 	{
 		void* real_adr = reinterpret_cast<void*>(mem_map[reinterpret_cast<uint64_t>(input_ptr)].second);
-		printf("free aligned block %x while the real address is%x\n", reinterpret_cast<uint64_t>(input_ptr), real_adr);
+		//printf("free aligned block %x while the real address is%x\n", reinterpret_cast<uint64_t>(input_ptr), real_adr);
 		free(real_adr);;
 		mem_map.erase(reinterpret_cast<uint64_t>(input_ptr));
 	}
 	template<> void alsm_free<DeviceType::CPU, double>(double* input_ptr)
 	{
 		void* real_adr = reinterpret_cast<void*>(mem_map[reinterpret_cast<uint64_t>(input_ptr)].second);
-		printf("free aligned block %x while the real address is%x\n", reinterpret_cast<uint64_t>(input_ptr), real_adr);
+		//printf("free aligned block %x while the real address is%x\n", reinterpret_cast<uint64_t>(input_ptr), real_adr);
 		free(real_adr);;
 		mem_map.erase(reinterpret_cast<uint64_t>(input_ptr));
 	}
@@ -85,7 +85,7 @@ namespace alsm
 		{
 			if (i.second.first == DeviceType::CPU)
 			{
-				printf("free aligned block %x while the real address is%x\n", i.first, i.second.second);
+				//printf("free aligned block %x while the real address is%x\n", i.first, i.second.second);
 				free(reinterpret_cast<void*>(i.second.second));
 
 			}
