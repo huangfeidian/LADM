@@ -14,7 +14,7 @@ namespace alsm
 		std::vector<std::atomic_bool> update_recieve;
 		std::atomic_bool work_finished;
 		const std::chrono::microseconds wait_time;
-		int x_dimension, b_dimension;
+		int  b_dimension;
 		std::vector<stream<D>> client_streams;
 		stream<D> server_stream;
 		std::vector<alsm_client<D, T>> all_clients;
@@ -45,6 +45,10 @@ namespace alsm
 		{
 			ready_thread_count.store(0);
 			update_recieve = std::vector<std::atomic_bool>(clients_number, std::atomic_bool());
+			for (auto i : update_recieve)
+			{
+				i.store(false);
+			}
 			server.update_recieved_vector = &update_recieve[0];
 			work_finished.store(false);
 			clients_beta = std::vector<T>(clients_number, 0);
@@ -63,6 +67,23 @@ namespace alsm
 		}
 
 	public:
+		void init_memory()
+		{
+			b = alsm_malloc<D, T>(b_dimension);
+			alsm_memset<D, T>(b, 0, b_dimension);
+			T* total_client_residual = alsm_malloc<D, T>(clients_number*b_dimension);
+			alsm_memset<D, T>(total_client_residual, 0, clients_number*b_dimension);
+			for (int i = 0; i < clients_number; i++)
+			{
+				clients_residual[i] = total_client_residual + i*b_dimension;
+			}
+			server_residual = alsm_malloc<D, T>(b_dimension);
+			alsm_memset<D, T>(server_residual, 0, b_dimension);
+			T* total_lambda = alsm_malloc<D, T>(2 * b_dimension);
+			alsm_memset<D, T>(total_lambda, 0, 2 * b_dimension);
+			lambda[0] = total_lambda;
+			lambda[1] = total_lambda + b_dimension;
+		}
 		void init_server(stream<D> in_stream, T* in_b, T* in_lambda)
 		{
 			server_stream = in_stream;
@@ -70,6 +91,7 @@ namespace alsm
 			alsm_fromcpu<D, T>(server_stream, lambda[0], in_lambda,b_dimension);
 			server.init_problem(clients_residual[0], &clients_opt[0], &clients_eta_norm[0], b, &server_beta, &clients_beta[0], lambda[1], lambda[0], server_residual);
 		}
+
 		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho)
 		{
 			server.init_parameter(in_eps_1, in_eps_2, in_beta, in_max_beta, in_rho);
@@ -82,7 +104,7 @@ namespace alsm
 		void add_client(stream<D> in_stream, int in_x_dimension, FunctionObj<T> in_func, T* in_A, bool is_Identity, MatrixMemOrd in_A_ord, T* in_x)
 		{
 			T* client_x = alsm_malloc<D, T>(3 * in_x_dimension);
-			clients_x[current_client_number] = client_x;
+			alsm_memset<D, T>(client_x, 0, 3 * in_x_dimension);
 			alsm_fromcpu<D, T>(server_stream, client_x, in_x, in_x_dimension);
 			T* client_A;
 			T max_sigular = 0;
@@ -90,14 +112,22 @@ namespace alsm
 			{
 				client_A = nullptr;
 				max_sigular = clients_number;
+				copy<D, T>(server_stream, b_dimension, client_x, clients_residual[current_client_number]);
 			}
 			else
 			{
 				client_A = alsm_malloc<D, T>(in_x_dimension*b_dimension);
+
 				alsm_fromcpu<D, T>(server_stream, client_A, in_A, in_x_dimension*b_dimension);
 				nrm2<D, T>(server_stream, in_x_dimension*b_dimension, client_A, &max_sigular);
 				max_sigular = max_sigular*max_sigular *clients_number;
+				int lda = (in_A_ord == MatrixMemOrd::ROW) ?in_x_dimension : b_dimension;
+				T alpha_one = 1;
+				T beta_zero = 0;
+				gemv<D, T>(server_stream, MatrixTrans::NORMAL, in_A_ord, b_dimension, in_x_dimension, &alpha_one, client_A, lda, 
+					client_x, &beta_zero, clients_residual[current_client_number]);//residual=A*x_1
 			}
+			clients_x[current_client_number] = client_x;
 			clients_dimension[current_client_number] = in_x_dimension;
 			output_x[current_client_number] = in_x;
 			clients_A[current_client_number] = client_A;
@@ -109,18 +139,17 @@ namespace alsm
 			all_clients.push_back(temp_client);
 			current_client_number++;
 		}
-		void init_memory()
+		void init_lambda()
 		{
-			b = alsm_malloc<D, T>(b_dimension);
-			T* total_client_residual = alsm_malloc<D, T>(clients_number*b_dimension);
-			for (int i = 0; i < clients_number; i++)
+			for (auto i : clients_residual)
 			{
-				clients_residual[i] = total_client_residual + i*b_dimension;
+				T alpha_one = 1;
+				axpy<D, T>(server_stream, b_dimension, &alpha_one, i, server_residual);
 			}
-			server_residual = alsm_malloc<D, T>(b_dimension);
-			T* total_lambda = alsm_malloc<D, T>(2 * b_dimension);
-			lambda[0] = total_lambda;
-			lambda[1] = total_lambda + b_dimension;
+			T neg_one = -1;
+			axpy<D, T>(server_stream, b_dimension, &neg_one, b, server_residual);
+			axpy<D, T>(server_stream, b_dimension, &server_beta, server_residual, lambda[1]);//lambda_hat=-beta*b;
+			
 		}
 		virtual void solve() = 0;
 	};

@@ -16,8 +16,7 @@ namespace alsm
 		}
 		void solve()
 		{
-			T neg_beta = -1 * server_beta;
-			axpy<D, T>(server_stream, b_dimension, &neg_beta, b, lambda[1]);//lambda_hat=-beta*b;
+			init_lambda();
 			while (!work_finished.load())
 			{
 				server.send();
@@ -40,14 +39,14 @@ namespace alsm
 			{
 				for (int i = 0; i < clients_number; i++)
 				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], all_client_x[i] + client_dimension[i], client_dimension[i]);
+					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i] + clients_dimension[i], clients_dimension[i]);
 				}
 			}
 			else
 			{
 				for (int i = 0; i < clients_number; i++)
 				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], all_client_x[i], client_dimension[i]);
+					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
 				}
 			}
 

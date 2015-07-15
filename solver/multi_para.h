@@ -16,8 +16,7 @@ namespace alsm
 		}
 		void solve()
 		{
-			T neg_beta = -1 * server_beta;
-			axpy<D, T>(server_stream, b_dimension, &neg_beta, b, lambda[1]);//lambda_hat=-beta*b;
+			init_beta();
 			std::vector<std::thread> all_threads;
 			all_threads.emplace_back(&alsm_server<D, T>::work, &server);
 			for (auto i : all_clients)

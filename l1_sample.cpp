@@ -52,8 +52,8 @@ int main()
 	//m row n column
 	
 	int alg = 3;
-	int m = 1024*10;
-	int n = 32 * 10*10;
+	int m = 1024;
+	int n = 32 * 10;
 	int maxIterInner = 50;
 	int maxIterOuter = 5000;
 	float sparsity = 0.1;
@@ -173,17 +173,17 @@ int main()
 	//{
 	//	fprintf(b_out, "%f ", b[i]);
 	//}
-	std::array<stream<DeviceType::GPU>, 3> streams{};
-	for (int i = 0; i < 3; i++)
+	std::array<stream<DeviceType::CPU>, 3> streams{};
+	/*for (int i = 0; i < 3; i++)
 	{
 		cudaStream_t temp_stream;
 		cudaStreamCreate(&temp_stream);
 		streams[i] = stream<DeviceType::GPU>(temp_stream);
-	}
-	seq_l1<DeviceType::GPU, float> solver(streams, m, n, 2000, 10);
+	}*/
+	seq_l1<DeviceType::CPU, float> solver(streams, m, n, 500, 10);
 	solver.init_memory();
 	solver.init_problem(MatrixMemOrd::COL, col_first_A, b, output_x, output_e);
-	solver.init_parameter(0.01, 0.01, 10, 1000, 1.1);
+	solver.init_parameter(0.01, 0.01, 1, 1000, 1.1);
 	
 	
 	
