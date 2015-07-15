@@ -105,9 +105,9 @@ namespace alsm
 			nrm2<D, T>(client_stream, x_dimension, x_1, &eta_norm);//eta_norm=nrm{x_1-x_2}
 			eta_norm *= sqrt(eta);//eta_norm=nrm{x_1-x_2}*\sqrt{eta}
 			//std::cout <<"eta_norm " <<eta_norm << std::endl;
-			std::swap(x_1, x_2);//x_1=x_2;
+			//std::swap(x_1, x_2);//x_1=x_2;
+			copy<D, T>(client_stream, x_dimension, x_2, x_1);
 			//output(x_1);
-			client_stream.sync();
 			if (IdentityMatrix)
 			{
 				copy(client_stream, b_dimension, x_1, residual);
@@ -136,7 +136,7 @@ namespace alsm
 			client_stream.sync();
 		}
 	public:
-		alsm_client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count, int in_wait_time, int in_index, int in_b_dimension, int in_x_dimension,
+		alsm_client(std::atomic_bool* in_work_finished, std::atomic_bool* in_update_recieved, std::atomic_int* in_free_thread_count, int in_wait_time, int in_index, int in_b_dimension, int in_x_dimension,
 			FunctionObj<T> in_func, stream<D>& in_stream)
 			:client(in_work_finished, in_update_recieved, in_free_thread_count, in_wait_time, in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
 		{

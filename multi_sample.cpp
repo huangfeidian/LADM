@@ -1,3 +1,4 @@
+#include "solver/multi_para.h"
 #include "solver/multi_seq.h"
 #include <chrono>
 #include <iostream>
@@ -184,12 +185,12 @@ int main()
 	//	cudaStreamCreate(&temp_stream);
 	//	streams[i] = stream<DeviceType::CPU>(temp_stream);
 	//}
-	multi_seq<DeviceType::CPU, float> solver(streams[0], 2, m, 500, 10);
+	multi_seq<DeviceType::CPU, float> solver(streams[0], 2, m, 1000, 10);
 	solver.init_memory();
 	solver.init_server(streams[0], b, lambda);
 	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);
 	solver.add_client(streams[2], n, FunctionObj<float>(UnaryFunc::Abs), col_first_A, false, MatrixMemOrd::COL, output_x);
-	solver.init_parameter(0.01, 0.01, 1, 1000, 1.1);
+	solver.init_parameter(0.01, 0.01, 4, 1000, 1.1);
 	auto begin = std::chrono::high_resolution_clock::now();
 	solver.solve();
 	auto end = std::chrono::high_resolution_clock::now();

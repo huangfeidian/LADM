@@ -16,7 +16,7 @@ namespace alsm
 		}
 		void solve()
 		{
-			init_beta();
+			init_lambda();
 			std::vector<std::thread> all_threads;
 			all_threads.emplace_back(&alsm_server<D, T>::work, &server);
 			for (auto i : all_clients)
@@ -27,19 +27,10 @@ namespace alsm
 			{
 				i.join();
 			}
-			if (server.current_iter % 2)
+
+			for (int i = 0; i < clients_number; i++)
 			{
-				for (int i = 0; i < clients_number; i++)
-				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i]+clients_dimension[i], clients_dimension[i]);
-				}
-			}
-			else
-			{
-				for (int i = 0; i < clients_number; i++)
-				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
-				}
+				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
 			}
 			
 		}

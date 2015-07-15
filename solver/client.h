@@ -12,17 +12,17 @@ namespace alsm
 	class client
 	{
 	public:
-		std::atomic_int& ready_thread_count;
-		std::atomic_bool& update_recieved;
-		std::atomic_bool& work_finished;
+		std::atomic_int* ready_thread_count;
+		std::atomic_bool* update_recieved;
+		std::atomic_bool* work_finished;
 		const std::chrono::nanoseconds wait_time;
 		void recieve_sync()
 		{
-			while (!update_recieved.load())
+			while (!update_recieved->load())
 			{
 				//std::this_thread::sleep_for(wait_time);
 			}
-			update_recieved.store(false);
+			update_recieved->store(false);
 		}
 		virtual void compute()
 		{
@@ -36,7 +36,7 @@ namespace alsm
 		virtual void send() = 0;
 	public:
 		int index;
-		client(std::atomic_bool& in_work_finished, std::atomic_bool& in_update_recieved, std::atomic_int& in_free_thread_count, int in_wait_time, int in_index)
+		client(std::atomic_bool* in_work_finished, std::atomic_bool* in_update_recieved, std::atomic_int* in_free_thread_count, int in_wait_time, int in_index)
 			:work_finished(in_work_finished), update_recieved(in_update_recieved), ready_thread_count(in_free_thread_count), wait_time(in_wait_time), index(in_index)
 		{
 
@@ -44,7 +44,7 @@ namespace alsm
 		virtual void work()
 		{
 			recieve_sync();
-			while (!work_finished.load())
+			while (!work_finished->load())
 			{
 				recieve();
 				compute();

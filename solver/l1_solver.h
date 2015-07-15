@@ -39,9 +39,9 @@ namespace alsm
 	public:
 		l1_solver(std::array<stream<D>, 3> three_stream, int in_b_dimension, int in_x_dimension, int in_max_iter, int in_wait_ms)
 			: x_dimension(in_x_dimension), b_dimension(in_b_dimension), wait_time(in_wait_ms), streams(three_stream),
-			e_client(work_finished, update_recieve[0], ready_thread_count, in_wait_ms, 0, in_b_dimension, in_b_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
-			x_client(work_finished, update_recieve[1], ready_thread_count, in_wait_ms, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
-			server(ready_thread_count, &update_recieve[0], work_finished, 2, in_wait_ms, in_max_iter, in_b_dimension, three_stream[2])
+			e_client(&work_finished, &update_recieve[0], &ready_thread_count, in_wait_ms, 0, in_b_dimension, in_b_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
+			x_client(&work_finished, &update_recieve[1], &ready_thread_count, in_wait_ms, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
+			server(&ready_thread_count, &update_recieve[0], &work_finished, 2, in_wait_ms, in_max_iter, in_b_dimension, three_stream[2])
 		{
 			ready_thread_count.store(0);
 			update_recieve[0].store(false);

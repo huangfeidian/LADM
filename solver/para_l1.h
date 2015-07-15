@@ -29,17 +29,10 @@ namespace alsm
 			{
 				i.join();
 			}
-			if (server.current_iter % 2)
-			{
-				alsm_tocpu<D, T>(streams[0], output_e, e[1], b_dimension);
-				alsm_tocpu<D, T>(streams[1], output_x, x[1], x_dimension);
-			}
-			else
-			{
-				alsm_tocpu<D, T>(streams[0], output_e, e[0], b_dimension);
-				alsm_tocpu<D, T>(streams[1], output_x, x[0], x_dimension);
 
-			}
+			alsm_tocpu<D, T>(streams[0], output_e, e[0], b_dimension);
+			alsm_tocpu<D, T>(streams[1], output_x, x[0], x_dimension);
+
 		}
 	};
 }

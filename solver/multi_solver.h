@@ -41,7 +41,7 @@ namespace alsm
 	public:
 		multi_solver(stream<D> in_stream, int in_client_number, int in_b_dimension, int in_max_iter, int in_wait_ms)
 			:b_dimension(in_b_dimension), wait_time(in_wait_ms), clients_number(in_client_number), server_stream(in_stream),
-			server(ready_thread_count, nullptr, work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
+			server(&ready_thread_count, nullptr, &work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
 		{
 			ready_thread_count.store(0);
 			update_recieve = std::vector<std::atomic_bool>(clients_number, std::atomic_bool());
@@ -133,7 +133,7 @@ namespace alsm
 			clients_A[current_client_number] = client_A;
 			client_streams[current_client_number] = in_stream;
 			int i = current_client_number;
-			alsm_client<D, T> temp_client(work_finished, update_recieve[i], ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func,in_stream);
+			alsm_client<D, T> temp_client(&work_finished, &update_recieve[i], &ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func,in_stream);
 			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], lambda[1], clients_residual[i], max_sigular);
 			temp_client.connect_server(&clients_eta_norm[i], &clients_opt[i], clients_residual[i], lambda[1]);
 			all_clients.push_back(temp_client);

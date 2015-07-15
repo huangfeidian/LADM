@@ -35,21 +35,11 @@ namespace alsm
 					work_finished.store(true);
 				}
 			}
-			if (server.current_iter % 2)
-			{
-				for (int i = 0; i < clients_number; i++)
-				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i] + clients_dimension[i], clients_dimension[i]);
-				}
-			}
-			else
-			{
-				for (int i = 0; i < clients_number; i++)
-				{
-					alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
-				}
-			}
 
+			for (int i = 0; i < clients_number; i++)
+			{
+				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
+			}
 		}
 	};
 }
