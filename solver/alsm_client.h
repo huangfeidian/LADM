@@ -136,9 +136,9 @@ namespace alsm
 			client_stream.sync();
 		}
 	public:
-		alsm_client(std::atomic_bool* in_work_finished, std::atomic_bool* in_update_recieved, std::atomic_int* in_free_thread_count, int in_wait_time, int in_index, int in_b_dimension, int in_x_dimension,
+		alsm_client(std::atomic_bool& in_work_finished,std::atomic_int& in_my_turn, std::atomic_int& in_free_thread_count, int in_wait_time, int in_index, int in_b_dimension, int in_x_dimension,
 			FunctionObj<T> in_func, stream<D>& in_stream)
-			:client(in_work_finished, in_update_recieved, in_free_thread_count, in_wait_time, in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
+			:client(in_work_finished, in_my_turn,in_free_thread_count, in_wait_time, in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
 		{
 
 		}

@@ -1,4 +1,5 @@
-#include "solver/para_l1.h"
+//#include "solver/para_l1.h"
+#include "solver/seq_l1.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -180,7 +181,7 @@ int main()
 		cudaStreamCreate(&temp_stream);
 		streams[i] = stream<DeviceType::GPU>(temp_stream);
 	}*/
-	para_l1<DeviceType::CPU, float> solver(streams, m, n, 500, 10);
+	seq_l1<DeviceType::CPU, float> solver(streams, m, n, 500, 10);
 	solver.init_memory();
 	solver.init_problem(MatrixMemOrd::COL, col_first_A, b, output_x, output_e);
 	solver.init_parameter(0.01, 0.01, 4, 1000, 1.1);

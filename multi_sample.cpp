@@ -1,5 +1,5 @@
 #include "solver/multi_para.h"
-#include "solver/multi_seq.h"
+//#include "solver/multi_seq.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -185,7 +185,7 @@ int main()
 	//	cudaStreamCreate(&temp_stream);
 	//	streams[i] = stream<DeviceType::CPU>(temp_stream);
 	//}
-	multi_seq<DeviceType::CPU, float> solver(streams[0], 2, m, 1000, 10);
+	multi_para<DeviceType::CPU, float> solver(streams[0], 2, m, 5, 10);
 	solver.init_memory();
 	solver.init_server(streams[0], b, lambda);
 	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);

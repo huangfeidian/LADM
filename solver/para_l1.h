@@ -18,8 +18,6 @@ namespace alsm
 		{
 			T neg_beta = -1 * beta[2];
 			axpy<D, T>(streams[2], b_dimension, &neg_beta, b, lambda[1]);//lambda_hat=-beta*b;
-			update_recieve[0].store(true);
-			update_recieve[1].store(true);
 			ready_thread_count.store(0);
 			std::vector<std::thread> all_threads;
 			all_threads.emplace_back(&alsm_server<D, T>::work, &server);

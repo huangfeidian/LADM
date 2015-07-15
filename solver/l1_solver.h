@@ -12,8 +12,8 @@ namespace alsm
 	{
 	public:
 		std::atomic_int ready_thread_count;
-		std::array<std::atomic_bool, 2> update_recieve;
 		std::atomic_bool work_finished;
+		std::array<std::atomic_int, 2> client_turns;
 		const std::chrono::microseconds wait_time;
 		int x_dimension, b_dimension;
 		std::array<stream<D>, 3> streams;
@@ -39,14 +39,14 @@ namespace alsm
 	public:
 		l1_solver(std::array<stream<D>, 3> three_stream, int in_b_dimension, int in_x_dimension, int in_max_iter, int in_wait_ms)
 			: x_dimension(in_x_dimension), b_dimension(in_b_dimension), wait_time(in_wait_ms), streams(three_stream),
-			e_client(&work_finished, &update_recieve[0], &ready_thread_count, in_wait_ms, 0, in_b_dimension, in_b_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
-			x_client(&work_finished, &update_recieve[1], &ready_thread_count, in_wait_ms, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
-			server(&ready_thread_count, &update_recieve[0], &work_finished, 2, in_wait_ms, in_max_iter, in_b_dimension, three_stream[2])
+			e_client(work_finished, client_turns[0], ready_thread_count, in_wait_ms, 0, in_b_dimension, in_b_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[0]),
+			x_client(work_finished,client_turns[1],  ready_thread_count, in_wait_ms, 1, in_b_dimension, in_x_dimension, FunctionObj<T>(UnaryFunc::Abs), three_stream[1]),
+			server(ready_thread_count, &client_turns[0],work_finished, 2, in_wait_ms, in_max_iter, in_b_dimension, three_stream[2])
 		{
 			ready_thread_count.store(0);
-			update_recieve[0].store(false);
-			update_recieve[1].store(false);
 			work_finished.store(false);
+			client_turns[0].store(0);
+			client_turns[1].store(0);
 			beta[0] = beta[1] = beta[2] = 0;
 			eta_norm[0] = eta_norm[1] = eta_norm[2] = 0;
 		}
