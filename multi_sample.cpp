@@ -178,14 +178,14 @@ int main()
 	//{
 	//	fprintf(b_out, "%f ", b[i]);
 	//}
-	std::array<stream<DeviceType::CPU>, 3> streams{};
-	//for (int i = 0; i < 3; i++)
-	//{
-	//	cudaStream_t temp_stream;
-	//	cudaStreamCreate(&temp_stream);
-	//	streams[i] = stream<DeviceType::CPU>(temp_stream);
-	//}
-	multi_para<DeviceType::CPU, float> solver(streams[0], 2, m, 500, 10);
+	std::array<stream<DeviceType::GPU>, 3> streams{};
+	for (int i = 0; i < 3; i++)
+	{
+		cudaStream_t temp_stream;
+		cudaStreamCreate(&temp_stream);
+		streams[i] = stream<DeviceType::GPU>(temp_stream);
+	}
+	multi_para<DeviceType::GPU, float> solver(streams[0], 2, m, 500, 10);
 	solver.init_memory();
 	solver.init_server(streams[0], b, lambda);
 	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);

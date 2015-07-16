@@ -26,7 +26,7 @@ namespace alsm
 		const int x_dimension, b_dimension;
 		T eta_norm;//eta norm=\sqrt{eta}*norm{x^{k+1}-x^{k}}
 		T *server_eta_nrm, *server_opt, *server_residual, *server_lambda_hat;
-		stream<D>& client_stream;
+		stream<D> client_stream;
 		const FunctionObj<T> func;
 
 #if FILE_DEBUG
@@ -137,7 +137,7 @@ namespace alsm
 		}
 	public:
 		alsm_client(std::atomic_bool& in_work_finished,std::atomic_int& in_my_turn, std::atomic_int& in_free_thread_count, int in_wait_time, int in_index, int in_b_dimension, int in_x_dimension,
-			FunctionObj<T> in_func, stream<D>& in_stream)
+			FunctionObj<T> in_func, stream<D> in_stream)
 			:client(in_work_finished, in_my_turn,in_free_thread_count, in_wait_time, in_index), b_dimension(in_b_dimension), x_dimension(in_x_dimension), func(in_func), client_stream(in_stream)
 		{
 

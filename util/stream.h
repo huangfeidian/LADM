@@ -25,6 +25,11 @@ namespace alsm
 		{
 			
 		}
+		stream(const stream<DeviceType::GPU>& in_stream)
+		{
+			cudastream = in_stream.cudastream;
+			local_handle = in_stream.local_handle;
+		}
 		stream<DeviceType::GPU>& operator=(const stream<DeviceType::GPU>& in_stream)
 		{
 			if (this != &in_stream)
@@ -34,6 +39,7 @@ namespace alsm
 			}
 			return *this;
 		}
+		
 		__DEVICE__ stream(cudaStream_t in_stream) :cudastream(in_stream)
 		{
 			CUBLAS_CHECK_ERR(cublasCreate(&local_handle));
