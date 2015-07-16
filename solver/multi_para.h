@@ -19,7 +19,7 @@ namespace alsm
 			init_lambda();
 			std::vector<std::thread> all_threads;
 			all_threads.emplace_back(&alsm_server<D, T>::work, &server);
-			for (auto i : all_clients)
+			for (auto& i : all_clients)
 			{
 				all_threads.emplace_back(&alsm_client<D, T>::work, &i);
 			}

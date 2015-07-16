@@ -53,8 +53,8 @@ int main()
 	//m row n column
 
 	int alg = 3;
-	int m = 1024 ;
-	int n = 32 * 10 ;
+	int m = 1024*10;
+	int n = 32 * 10*10 ;
 	int maxIterInner = 50;
 	int maxIterOuter = 5000;
 	float sparsity = 0.1;
@@ -185,7 +185,7 @@ int main()
 	//	cudaStreamCreate(&temp_stream);
 	//	streams[i] = stream<DeviceType::CPU>(temp_stream);
 	//}
-	multi_para<DeviceType::CPU, float> solver(streams[0], 2, m, 5, 10);
+	multi_para<DeviceType::CPU, float> solver(streams[0], 2, m, 500, 10);
 	solver.init_memory();
 	solver.init_server(streams[0], b, lambda);
 	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);

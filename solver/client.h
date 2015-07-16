@@ -24,7 +24,7 @@ namespace alsm
 				//std::this_thread::sleep_for(wait_time);
 			}
 			my_turn.store(0);
-			printf("client %d update recieved\n",index);
+			//printf("client %d update recieved\n",index);
 		}
 		virtual void compute()
 		{
@@ -33,8 +33,8 @@ namespace alsm
 		void send_sync()
 		{
 			ready_thread_count++;
-			int a = ready_thread_count.load();
-			printf("client %d finished ,current count is %d \n",index,a);
+			//int a = ready_thread_count.load();
+			//printf("client %d finished ,current count is %d \n",index,a);
 		}
 		virtual void recieve() = 0;
 		virtual void send() = 0;
