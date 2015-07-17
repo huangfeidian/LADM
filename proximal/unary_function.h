@@ -211,7 +211,7 @@ template <typename T>
 		template <typename T>
 		__DEVICE__  T Sign(T x)
 		{
-			return x >= 0 ? 1 : -1;
+			return x >= 0 ? static_cast<T>(1.0) : static_cast<T>(-1.0);
 		}
 
 		// LambertW(Exp(x))

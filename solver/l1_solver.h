@@ -1,7 +1,7 @@
 // this l1 solver is to solve 
 //min |x|1 + |e|1 s.t. Ax + e = b\n
-#ifndef _H_L1_SOLVER_H_
-#define _H_PARA_L1_H_
+#ifndef __H_L1_SOLVER_H__
+#define __H_L1_SOLVER_H__
 #include "alsm_client.h"
 #include "alsm_server.h"
 //#include "../lapack/lapack.h"

@@ -120,10 +120,8 @@ namespace alsm
 				nrm2<D, T>(server_stream, in_x_dimension*b_dimension, client_A, &max_sigular);
 				max_sigular = max_sigular*max_sigular *clients_number;
 				int lda = (in_A_ord == MatrixMemOrd::ROW) ?in_x_dimension : b_dimension;
-				T alpha_one = 1;
-				T beta_zero = 0;
-				gemv<D, T>(server_stream, MatrixTrans::NORMAL, in_A_ord, b_dimension, in_x_dimension, &alpha_one, client_A, lda, 
-					client_x, &beta_zero, clients_residual[current_client_number]);//residual=A*x_1
+				gemv<D, T>(server_stream, MatrixTrans::NORMAL, in_A_ord, b_dimension, in_x_dimension, 1, client_A, lda, 
+					client_x, 0, clients_residual[current_client_number]);//residual=A*x_1
 			}
 			clients_x[current_client_number] = client_x;
 			clients_dimension[current_client_number] = in_x_dimension;
@@ -141,12 +139,10 @@ namespace alsm
 		{
 			for (auto i : clients_residual)
 			{
-				T alpha_one = 1;
-				axpy<D, T>(server_stream, b_dimension, &alpha_one, i, server_residual);
+				axpy<D, T>(server_stream, b_dimension, 1, i, server_residual);
 			}
-			T neg_one = -1;
-			axpy<D, T>(server_stream, b_dimension, &neg_one, b, server_residual);
-			axpy<D, T>(server_stream, b_dimension, &server_beta, server_residual, lambda[1]);//lambda_hat=-beta*b;
+			axpy<D, T>(server_stream, b_dimension, -1, b, server_residual);
+			axpy<D, T>(server_stream, b_dimension, server_beta, server_residual, lambda[1]);//lambda_hat=-beta*b;
 			
 		}
 		virtual void solve() = 0;

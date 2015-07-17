@@ -1,5 +1,5 @@
-﻿#ifndef __H_alloca_H__
-#define __H_alloca_H__
+﻿#ifndef __H_ALLOCA_H__
+#define __H_ALLOCA_H__
 #include "../util/flags.h"
 #include "../util/enum.h"
 #include "../util/util.h"

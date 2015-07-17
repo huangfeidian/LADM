@@ -13,8 +13,7 @@ namespace alsm
 		}
 		void solve()
 		{
-			T neg_beta = -1 * beta[2];
-			axpy<D, T>(streams[2], b_dimension, &neg_beta, b, lambda[1]);//lambda_hat=-beta*b;
+			axpy<D, T>(streams[2], b_dimension, -1*beta[2], b, lambda[1]);//lambda_hat=-beta*b;
 			while (!work_finished.load())
 			{
 				server.send();

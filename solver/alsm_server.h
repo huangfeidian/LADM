@@ -37,25 +37,23 @@ namespace alsm
 	public:
 		inline void gather_residual()
 		{
-			T alpha = static_cast<T>(1);
 			alsm_memset<D, T>(total_residual, 0, b_dimension);
 			for (int i = 0; i < client_number; i++)
 			{
 
-				axpy<D, T>(server_stream, b_dimension, &alpha, client_residual + i*b_dimension, total_residual);
+				axpy<D, T>(server_stream, b_dimension, 1, client_residual + i*b_dimension, total_residual);
 			}
-			alpha = static_cast<T>(-1);
-			axpy<D, T>(server_stream, b_dimension, &alpha, b, total_residual);
+			axpy<D, T>(server_stream, b_dimension, -1, b, total_residual);
 
 		}
 		inline void update_lambda_hat()
 		{
 			copy<D, T>(server_stream, b_dimension, lambda, lambda_hat);
-			axpy<D, T>(server_stream, b_dimension, beta, total_residual, lambda_hat);
+			axpy<D, T>(server_stream, b_dimension, *beta, total_residual, lambda_hat);
 		}
 		inline void update_lambda()
 		{
-			axpy<D, T>(server_stream, b_dimension, beta, total_residual, lambda);
+			axpy<D, T>(server_stream, b_dimension, *beta, total_residual, lambda);
 		}
 		void update_beta()
 		{

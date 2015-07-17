@@ -74,88 +74,96 @@ namespace alsm
 	}
 #endif
 	//scal
-	template< DeviceType D, typename T> void scal(stream<D> stream, int n, T* x, const T* alpha);
+	template< DeviceType D, typename T> void scal(stream<D> stream, int n, T* x, T alpha);
 #if ALSM_USE_CPU
 	template<>
-	__INLINE__ void scal<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, float* x, const float* alpha)
+	__INLINE__ void scal<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, float* x, float alpha)
 	{
-		cblas_sscal(n, *alpha, x, 1);
+		cblas_sscal(n, alpha, x, 1);
 	}
 	template<>
-	__INLINE__ void scal<DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, double* x, const double* alpha)
+	__INLINE__ void scal<DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, double* x, double alpha)
 	{
-		cblas_dscal(n, *alpha, x, 1);
+		cblas_dscal(n, alpha, x, 1);
 	}
 #endif
 #if ALSM_USE_GPU
 	template<>
-	__INLINE__ void scal<DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, float* x, const float* alpha)
+	__INLINE__ void scal<DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, float* x,  float alpha)
 	{
-		CUBLAS_CHECK_ERR(cublasSscal(stream.local_handle, n, alpha, x, 1));
+		float temp_alpha = alpha;
+		CUBLAS_CHECK_ERR(cublasSscal(stream.local_handle, n, &temp_alpha, x, 1));
 		//cudaDeviceSynchronize();
 	}
 	template<>
-	__INLINE__ void scal<DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, double* x, const double* alpha)
+	__INLINE__ void scal<DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, double* x, double alpha)
 	{
-		CUBLAS_CHECK_ERR(cublasDscal(stream.local_handle, n, alpha, x, 1));
+		double temp_alpha = alpha;
+		CUBLAS_CHECK_ERR(cublasDscal(stream.local_handle, n, &temp_alpha, x, 1));
 	}
 #endif
 	// axpy
 	template< DeviceType D, typename T>
-	__INLINE__ void axpy(stream<D> stream, int n, const T* alpha, const T* x, T* y);
+	__INLINE__ void axpy(stream<D> stream, int n, T alpha, const T* x, T* y);
 #if ALSM_USE_CPU
 	template<>
-	__INLINE__ void axpy<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, const float* alpha, const float* x, float* y)
+	__INLINE__ void axpy<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, float alpha, const float* x, float* y)
 	{
-		cblas_saxpy(n, *alpha, x, 1, y, 1);
+		cblas_saxpy(n, alpha, x, 1, y, 1);
 	}
 	template<>
-	__INLINE__ void axpy< DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, const double* alpha, const double* x, double* y)
+	__INLINE__ void axpy< DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, double alpha, const double* x, double* y)
 	{
-		cblas_daxpy(n, *alpha, x, 1, y, 1);
+		cblas_daxpy(n, alpha, x, 1, y, 1);
 	}
 #endif
 
 #if ALSM_USE_GPU
 	template<>
-	__INLINE__ void axpy< DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, const float* alpha, const float* x, float* y)
+	__INLINE__ void axpy< DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, float alpha, const float* x, float* y)
 	{
-		CUBLAS_CHECK_ERR(cublasSaxpy(stream.local_handle, n, alpha, x, 1, y, 1));
+		float temp_alpha = alpha;
+		CUBLAS_CHECK_ERR(cublasSaxpy(stream.local_handle, n, &temp_alpha, x, 1, y, 1));
 	}
 	template<>
-	__INLINE__ void axpy< DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, const double* alpha, const double* x, double* y)
+	__INLINE__ void axpy< DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, double alpha, const double* x, double* y)
 	{
-		CUBLAS_CHECK_ERR(cublasDaxpy(stream.local_handle, n, alpha, x, 1, y, 1));
+		double temp_alpha = alpha;
+		CUBLAS_CHECK_ERR(cublasDaxpy(stream.local_handle, n, &temp_alpha, x, 1, y, 1));
 	}
 #endif
 	//axpby
 	template< DeviceType D, typename T>
-	void axpby(stream<D> stream, int n, const T* alpha, const T* x, const T*beta, T* y);
+	void axpby(stream<D> stream, int n, T alpha, const T* x, T beta, T* y);
 #if ALSM_USE_CPU
 	template<>
-	__INLINE__ void axpby<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, const float* alpha, const float* x, const float* beta, float* y)
+	__INLINE__ void axpby<DeviceType::CPU, float >(stream<DeviceType::CPU> stream, int n, float alpha, const float* x, float beta, float* y)
 	{
-		cblas_saxpby(n, *alpha, x, 1, *beta, y, 1);
+		cblas_saxpby(n, alpha, x, 1, beta, y, 1);
 	}
 	template<>
-	__INLINE__ void axpby< DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, const double* alpha, const double* x, const double* beta, double* y)
+	__INLINE__ void axpby< DeviceType::CPU, double >(stream<DeviceType::CPU> stream, int n, double alpha, const double* x, double beta, double* y)
 	{
-		cblas_daxpby(n, *alpha, x, 1, *beta, y, 1);
+		cblas_daxpby(n, alpha, x, 1, beta, y, 1);
 	}
 #endif
 
 #if ALSM_USE_GPU
 	template<>
-	__INLINE__ void axpby< DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, const float* alpha, const float* x, const float* beta, float* y)
+	__INLINE__ void axpby< DeviceType::GPU, float >(stream<DeviceType::GPU> stream, int n, float alpha, const float* x, float beta, float* y)
 	{
-		CUBLAS_CHECK_ERR(cublasSscal(stream.local_handle, n, beta, y, 1));
-		CUBLAS_CHECK_ERR(cublasSaxpy(stream.local_handle, n, alpha, x, 1, y, 1));
+		float temp_alpha = alpha;
+		float temp_beta = beta;
+		CUBLAS_CHECK_ERR(cublasSscal(stream.local_handle, n, &temp_beta, y, 1));
+		CUBLAS_CHECK_ERR(cublasSaxpy(stream.local_handle, n, &temp_alpha, x, 1, y, 1));
 	}
 	template<>
-	__INLINE__ void axpby< DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, const double* alpha, const double* x, const double* beta, double* y)
+	__INLINE__ void axpby< DeviceType::GPU, double >(stream<DeviceType::GPU> stream, int n, double alpha, const double* x, double beta, double* y)
 	{
-		CUBLAS_CHECK_ERR(cublasDscal(stream.local_handle, n, beta, y, 1));
-		CUBLAS_CHECK_ERR(cublasDaxpy(stream.local_handle, n, alpha, x, 1, y, 1));
+		double temp_alpha = alpha;
+		double temp_beta = beta;
+		CUBLAS_CHECK_ERR(cublasDscal(stream.local_handle, n, &temp_beta, y, 1));
+		CUBLAS_CHECK_ERR(cublasDaxpy(stream.local_handle, n, &temp_alpha, x, 1, y, 1));
 	}
 #endif
 	// dot

@@ -79,28 +79,23 @@ namespace alsm
 		}
 		virtual void compute()
 		{
-			output(x_1);
-			T alpha_one = static_cast<T>(1);
-			T alpha_neg_one = static_cast<T>(-1);
-			T beta_zero = static_cast<T>(0);
+			//output(x_1);
 			if (IdentityMatrix)
 			{
 				copy<D, T>(client_stream, b_dimension, lambda_hat, v);
 			}
 			else
 			{
-				gemv<D, T>(client_stream, MatrixTrans::TRANSPOSE, A_ord, b_dimension, x_dimension, &alpha_one, A, lda, lambda_hat, &beta_zero, v);//v=A^T*lambda_hat
+				gemv<D, T>(client_stream, MatrixTrans::TRANSPOSE, A_ord, b_dimension, x_dimension, 1, A, lda, lambda_hat,0, v);//v=A^T*lambda_hat
 			}
 			//output(v);
-			T inver_sigma = -1 / sigma;
-			axpby<D, T>(client_stream, x_dimension, &alpha_one, x_1, &inver_sigma, v);//v=x_1+A^T*lambda_hat/sigma
+			axpby<D, T>(client_stream, x_dimension, 1, x_1, -1 / sigma, v);//v=x_1+A^T*lambda_hat/sigma
 			//output(v);
-			sigma /= 2;
 			//std::cout << "the sigma is " << sigma << std::endl;
 
-			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
+			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma/2, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
 			//output(x_2);
-			axpy<D, T>(client_stream, x_dimension, &alpha_neg_one, x_2, x_1);//x_1=x_1-x_2;
+			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
 			nrm2<D, T>(client_stream, x_dimension, x_1, &eta_norm);//eta_norm=nrm{x_1-x_2}
 			eta_norm *= sqrt(eta);//eta_norm=nrm{x_1-x_2}*\sqrt{eta}
@@ -114,7 +109,7 @@ namespace alsm
 			}
 			else
 			{
-				gemv<D, T>(client_stream, MatrixTrans::NORMAL, A_ord, b_dimension, x_dimension, &alpha_one, A, lda, x_1, &beta_zero, residual);//residual=A*x_1
+				gemv<D, T>(client_stream, MatrixTrans::NORMAL, A_ord, b_dimension, x_dimension,1, A, lda, x_1, 0, residual);//residual=A*x_1
 			}
 			if (func.h == UnaryFunc::Abs)
 			{

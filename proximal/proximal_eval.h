@@ -1,5 +1,5 @@
-﻿#ifndef __H_proxeval_H__
-#define __H_proxeval_H__
+﻿#ifndef __H_PROXEVAL_H__
+#define __H_PROXEVAL_H__
 
 #include <algorithm>
 #include <cmath>

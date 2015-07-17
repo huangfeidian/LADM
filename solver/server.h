@@ -1,5 +1,5 @@
-#ifndef _H_SERVER_H_
-#define _H_SERVER_H_
+#ifndef __H_SERVER_H__
+#define __H_SERVER_H__
 #include <thread>
 #include <memory>
 #include <condition_variable>

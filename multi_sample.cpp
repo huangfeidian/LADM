@@ -103,7 +103,7 @@ int main()
 	}
 	for (int j = 0; j < (int) (n * sparsity); j++)
 	{
-		xG[(int) (rand()) % n] = fabsf((float)1.0 * (rand() - rand()));
+		xG[(int) (rand()) % n] = abs((float)1.0 * (rand() - rand()));
 	}
 	for (int j = 0; j < n; j++)
 	{
@@ -127,7 +127,7 @@ int main()
 	}
 	for (int j = 0; j < (int) (m * sparsity); j++)
 	{
-		yk[(int) (rand()) % m] = fabsf((float)1.0 * (rand() - rand()));
+		yk[(int) (rand()) % m] = abs((float)1.0 * (rand() - rand()));
 	}
 	for (int j = 0; j < m; j++)
 	{
@@ -150,9 +150,8 @@ int main()
 		b[i] = yk[i];
 	}
 	stream<DeviceType::CPU> main_cpu_stream;
-	float one = 1.0;
 	//b=yk+A*xG
-	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, &one, col_first_A, m, xG, &one, b);
+	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, 1, col_first_A, m, xG, 1, b);
 	for (int i = 0; i < m; i++)
 	{
 		normB += b[i] * b[i];
@@ -185,7 +184,7 @@ int main()
 		cudaStreamCreate(&temp_stream);
 		streams[i] = stream<DeviceType::GPU>(temp_stream);
 	}
-	multi_para<DeviceType::GPU, float> solver(streams[0], 2, m, 500, 10);
+	multi_para<DeviceType::GPU, float> solver(streams[0], 2, m, 2500, 10);
 	solver.init_memory();
 	solver.init_server(streams[0], b, lambda);
 	solver.add_client(streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);
@@ -206,9 +205,8 @@ int main()
 	{
 		opt += fabsf(output_e[i]);
 	}
-	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, &one, col_first_A, m, output_x, &one, output_e);
-	float neg_one = -1;
-	axpy<DeviceType::CPU, float>(main_cpu_stream, m, &neg_one, b, output_e);
+	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n,1, col_first_A, m, output_x,1, output_e);
+	axpy<DeviceType::CPU, float>(main_cpu_stream, m,-1, b, output_e);
 	float error = 0;
 	nrm2<DeviceType::CPU, float>(main_cpu_stream, m, output_e, &error);
 	std::chrono::duration<float, std::milli> elapsed = end - begin;

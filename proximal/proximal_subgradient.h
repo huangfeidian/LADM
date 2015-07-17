@@ -1,5 +1,5 @@
-﻿#ifndef __H_proxsubg_H__
-#define __H_proxsubg_H__
+﻿#ifndef __H_PROXSUBG_H__
+#define __H_PROXSUBG_H__
 #include <algorithm>
 #include <cstdio>
 #include <limits>
