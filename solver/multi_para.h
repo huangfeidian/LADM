@@ -3,6 +3,7 @@
 #ifndef __H_MULTI_PARA_H__
 #define __H_MULTI_PARA_H__
 #include "multi_solver.h"
+#include <future>
 namespace alsm
 {
 	template <DeviceType D, typename T> class multi_para:public multi_solver<D,T>
@@ -17,21 +18,33 @@ namespace alsm
 		void solve()
 		{
 			init_lambda();
-			std::vector<std::thread> all_threads;
-			all_threads.emplace_back(&alsm_server<D, T>::work, &server);
-			for (auto& i : all_clients)
+			std::vector<std::future<void>> async_futures(clients_number);
+			while (!work_finished.load())
 			{
-				all_threads.emplace_back(&alsm_client<D, T>::work, &i);
-			}
-			for (auto& i : all_threads)
-			{
-				i.join();
+				server.send();
+				for (int i = 0; i < clients_number; i++)
+				{
+					async_futures[i] = std::async(std::launch::async,&alsm_client<D,T>::task, &all_clients[i]);
+				}
+				for (auto & i : async_futures)
+				{
+					i.get();
+				}
+				server.recieve();
+				server.compute();
+				server.current_iter++;
+				if (server.current_iter == server.max_iter)
+				{
+					fprintf(stdout, " max iteration %d is exceed\n", server.max_iter);
+					work_finished.store(true);
+				}
 			}
 
 			for (int i = 0; i < clients_number; i++)
 			{
 				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
 			}
+
 			
 		}
 	};

@@ -98,7 +98,7 @@ namespace alsm
 				*beta = *beta*rho;
 				if (current_eps1 < epsilon_1)
 				{
-					work_finished.store(true);
+					work_finished->store(true);
 				}
 			}
 			if (*beta > beta_max)
@@ -143,7 +143,7 @@ namespace alsm
 
 		}
 	public:
-		alsm_server(std::atomic_int& in_free_thread_count, std::atomic_int* in_client_turns, std::atomic_bool& in_work_finished, int in_client_number,
+		alsm_server(std::atomic_int* in_free_thread_count, cache_align_storage<std::atomic_bool>* in_client_turns, std::atomic_bool* in_work_finished, int in_client_number,
 			int in_wait_time, int in_max_iter, int in_b_dimesion, stream<D>& in_stream) :
 			server(in_free_thread_count,in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter), 
 			b_dimension(in_b_dimesion), server_stream(in_stream)

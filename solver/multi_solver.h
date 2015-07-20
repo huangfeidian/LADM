@@ -15,7 +15,7 @@ namespace alsm
 		const std::chrono::microseconds wait_time;
 		int  b_dimension;
 		std::vector<stream<D>> client_streams;
-		std::array<std::atomic_int, 10> all_client_turns;
+		std::array<cache_align_storage<std::atomic_bool>,20> all_client_turns;
 		stream<D> server_stream;
 		std::vector<alsm_client<D, T>> all_clients;
 		alsm_server<D, T> server;
@@ -41,12 +41,12 @@ namespace alsm
 	public:
 		multi_solver(stream<D> in_stream, int in_client_number, int in_b_dimension, int in_max_iter, int in_wait_ms)
 			:b_dimension(in_b_dimension), wait_time(in_wait_ms), clients_number(in_client_number), server_stream(in_stream), 
-			server(ready_thread_count, &all_client_turns[0],work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
+			server(&ready_thread_count, &all_client_turns[0],&work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
 		{
 			ready_thread_count.store(0);
 			for (int i = 0; i < clients_number; i++)
 			{
-				all_client_turns[i].store(0);
+				all_client_turns[i].data.store(false);
 			}
 			work_finished.store(false);
 			clients_beta = std::vector<T>(clients_number, 0);
@@ -129,7 +129,7 @@ namespace alsm
 			clients_A[current_client_number] = client_A;
 			client_streams[current_client_number] = in_stream;
 			int i = current_client_number;
-			alsm_client<D, T> temp_client(work_finished, all_client_turns[i], ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func, in_stream);
+			alsm_client<D, T> temp_client(&work_finished, &all_client_turns[i], &ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func, in_stream);
 			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], lambda[1], clients_residual[i], max_sigular);
 			temp_client.connect_server(&clients_eta_norm[i], &clients_opt[i], clients_residual[i], lambda[1]);
 			all_clients.push_back(temp_client);
