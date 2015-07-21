@@ -45,37 +45,18 @@ namespace alsm
 		}
 		virtual void recieve()
 		{
-			copy<D, T>(client_stream, b_dimension, server_lambda_hat, lambda_hat);
+			
 			sigma = eta*(*client_beta);
+			copy<D, T>(client_stream, b_dimension, server_lambda_hat, lambda_hat);
 		}
 		virtual void send()
 		{
+			client_stream.sync();
+			eta_norm *= sqrt(eta);
 			*server_eta_nrm = eta_norm;
 			*server_opt = opt_value;
 			copy<D, T>(client_stream, b_dimension, residual, server_residual);
-		}
-		virtual void  proximal_update()
-		{
-			T temp_lambda = 1 / sigma;
-			//BatchProxEval<D, T>(client_stream, func, x_dimension, sigma, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
-			for (int i = 0; i < x_dimension; i++)
-			{
-				if (fabsf(v[i]) <= temp_lambda)
-				{
-					x_2[i] = 0;
-				}
-				else
-				{
-					if (v[i]>0)
-					{
-						x_2[i] = v[i] - temp_lambda;
-					}
-					else
-					{
-						x_2[i] = v[i] + temp_lambda;
-					}
-				}
-			}
+			client_stream.sync();
 		}
 		virtual void compute()
 		{
@@ -98,7 +79,7 @@ namespace alsm
 			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
 			nrm2<D, T>(client_stream, x_dimension, x_1, &eta_norm);//eta_norm=nrm{x_1-x_2}
-			eta_norm *= sqrt(eta);//eta_norm=nrm{x_1-x_2}*\sqrt{eta}
+			
 			//std::cout <<"eta_norm " <<eta_norm << std::endl;
 			//std::swap(x_1, x_2);//x_1=x_2;
 			copy<D, T>(client_stream, x_dimension, x_2, x_1);
@@ -128,7 +109,7 @@ namespace alsm
 			}
 
 			//std::cout << opt_value << std::endl;
-			client_stream.sync();
+			
 		}
 		virtual void task()
 		{

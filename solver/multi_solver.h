@@ -118,6 +118,7 @@ namespace alsm
 
 				alsm_fromcpu<D, T>(server_stream, client_A, in_A, in_x_dimension*b_dimension);
 				nrm2<D, T>(server_stream, in_x_dimension*b_dimension, client_A, &max_sigular);
+				server_stream.sync();
 				max_sigular = max_sigular*max_sigular *clients_number;
 				int lda = (in_A_ord == MatrixMemOrd::ROW) ?in_x_dimension : b_dimension;
 				gemv<D, T>(server_stream, MatrixTrans::NORMAL, in_A_ord, b_dimension, in_x_dimension, 1, client_A, lda, 
@@ -143,7 +144,7 @@ namespace alsm
 			}
 			axpy<D, T>(server_stream, b_dimension, -1, b, server_residual);
 			axpy<D, T>(server_stream, b_dimension, server_beta, server_residual, lambda[1]);//lambda_hat=-beta*b;
-			
+			server_stream.sync();
 		}
 		virtual void solve() = 0;
 	};

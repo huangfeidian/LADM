@@ -20,10 +20,13 @@ namespace alsm
 			while (!work_finished.load())
 			{
 				server.send();
-				for (auto i : all_clients)
+				for (auto& i : all_clients)
 				{
 					i.recieve();
 					i.compute();
+				}
+				for (auto& i : all_clients)
+				{
 					i.send();
 				}
 				server.recieve();

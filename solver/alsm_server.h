@@ -50,6 +50,7 @@ namespace alsm
 		{
 			copy<D, T>(server_stream, b_dimension, lambda, lambda_hat);
 			axpy<D, T>(server_stream, b_dimension, *beta, total_residual, lambda_hat);
+			server_stream.sync();
 		}
 		inline void update_lambda()
 		{
@@ -57,6 +58,9 @@ namespace alsm
 		}
 		void update_beta()
 		{
+			T total_residual_norm = 0;
+			nrm2<D, T>(server_stream, b_dimension, total_residual, &total_residual_norm);
+			server_stream.sync();
 			T max_eta_norm = static_cast<T>(0);
 
 			for (int i = 0; i < client_number; i++)
@@ -73,8 +77,7 @@ namespace alsm
 
 			//std::cout << "eta norm " << max_eta_norm<<std::endl;
 			current_eps2 = *beta*max_eta_norm / norm_b;
-			T total_residual_norm = 0;
-			nrm2<D, T>(server_stream, b_dimension, total_residual, &total_residual_norm);
+			
 			current_eps1 = total_residual_norm / norm_b;
 #if FILE_DEBUG
 			fprintf(scalar_info, "%lf,%lf,", static_cast<double>(current_eps1), static_cast<double>(current_eps2));
@@ -116,7 +119,6 @@ namespace alsm
 			update_lambda();
 			update_beta();
 			update_lambda_hat();
-			//output_train_result();
 		}
 
 		void output_train_result()
@@ -164,6 +166,7 @@ namespace alsm
 			client_beta = in_client_beta;
 			eta_norm = in_client_eta_norm;
 			nrm2<D, T>(server_stream, b_dimension, b, &norm_b);
+			server_stream.sync();
 #if FILE_DEBUG
 			set_debug_file();
 #endif
