@@ -3,6 +3,7 @@
 #include "enum.h"
 #include "flags.h"
 #include "util.h"
+#include <vector>
 namespace alsm
 {
 	template<DeviceType D>
@@ -10,6 +11,10 @@ namespace alsm
 	{
 		// this is only a dummy implementation for CPU
 		void sync()
+		{
+
+		}
+		void destory()
 		{
 
 		}
@@ -49,11 +54,36 @@ namespace alsm
 		{
 			CUDA_CHECK_ERR(cudaStreamSynchronize(cudastream));
 		}
+		__DEVICE__ void destory()
+		{
+			CUBLAS_CHECK_ERR(cublasDestroy(local_handle));
+			cuStreamDestroy(cudastream);
+		}
 		__DEVICE__ ~stream()
 		{
 			//CUBLAS_CHECK_ERR(cublasDestroy(local_handle));
 		}
 	};
+	/*template <DeviceType D>*/
+	/*std::vector<stream<D>> create_streams(int stream_size);*/
+	//template <>
+	//std::vector<stream<DeviceType::CPU>> create_streams<DeviceType::CPU>(int stream_size)
+	//{
+	//	std::vector<stream<DeviceType::CPU>> result_streams(stream_size, stream<DeviceType::CPU>());
+	//	return result_streams;
+	//}
+	//template <>
+	//std::vector<stream<DeviceType::GPU>> create_streams<DeviceType::GPU>(int stream_size)
+	//{
+	//	std::vector<stream<DeviceType::GPU>> result_streams(stream_size, stream<DeviceType::GPU>());
+	//	for (int i = 0; i < stream_size; i++)
+	//	{
+	//		cudaStream_t temp_stream;
+	//		CUDA_CHECK_ERR(cudaStreamCreate(&temp_stream));
+	//		result_streams[i] = stream<DeviceType::GPU>(temp_stream);
+	//	}
+	//	return result_streams;
+	//}
 #endif
 }
 #endif

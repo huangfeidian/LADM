@@ -21,7 +21,7 @@ namespace alsm
 			std::vector<std::future<void>> async_futures(clients_number);
 			while (!work_finished.load())
 			{
-				server.send();
+				lambda_server.send();
 				for (int i = 0; i < clients_number; i++)
 				{
 					async_futures[i] = std::async(std::launch::async,&alsm_client<D,T>::task, &all_clients[i]);
@@ -30,12 +30,12 @@ namespace alsm
 				{
 					i.get();
 				}
-				server.recieve();
-				server.compute();
-				server.current_iter++;
-				if (server.current_iter == server.max_iter)
+				lambda_server.recieve();
+				lambda_server.compute();
+				lambda_server.current_iter++;
+				if (lambda_server.current_iter == lambda_server.max_iter)
 				{
-					fprintf(stdout, " max iteration %d is exceed\n", server.max_iter);
+					fprintf(stdout, " max iteration %d is exceed\n", lambda_server.max_iter);
 					work_finished.store(true);
 				}
 			}
@@ -44,6 +44,7 @@ namespace alsm
 			{
 				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
 			}
+			alsm_tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
 
 			
 		}

@@ -5,7 +5,7 @@
 #include "../util/alloca.h"
 #include <vector>
 #include <sstream>
-#define FILE_DEBUG 1
+#define FILE_DEBUG 0
 namespace alsm
 {
 	template<DeviceType D, typename T>
@@ -20,8 +20,9 @@ namespace alsm
 		T* client_residual;//Ax_i
 		T* total_residual;//sum{Ax_i}-b
 		T* eta_norm;//stand for \sqrt{\eta _i}||x_i^{k+1}-x_i^k||
+		T total_residual_norm;
 		T* client_opt_value;
-		T current_opt_value;//sum{client_opt_value}
+		T total_opt_value;//sum{client_opt_value}
 		T norm_b;//norm{b}
 		T epsilon_1;		//eps_1=norm{total_residual}/norm{b} 
 		T epsilon_2;		//eps_2=beta_k* max{eta_norm}
@@ -58,7 +59,7 @@ namespace alsm
 		}
 		void update_beta()
 		{
-			T total_residual_norm = 0;
+			total_residual_norm = 0;
 			nrm2<D, T>(server_stream, b_dimension, total_residual, &total_residual_norm);
 			server_stream.sync();
 			T max_eta_norm = static_cast<T>(0);
@@ -82,10 +83,10 @@ namespace alsm
 #if FILE_DEBUG
 			fprintf(scalar_info, "%lf,%lf,", static_cast<double>(current_eps1), static_cast<double>(current_eps2));
 #endif
-			current_opt_value = 0;
+			total_opt_value = 0;
 			for (int i = 0; i < client_number; i++)
 			{
-				current_opt_value += client_opt_value[i];
+				total_opt_value += client_opt_value[i];
 #if FILE_DEBUG
 				fprintf(scalar_info, "%lf,", static_cast<double>(client_opt_value[i]));
 #endif
@@ -93,7 +94,7 @@ namespace alsm
 			}
 			//std::cout << std::endl;
 #if FILE_DEBUG
-			fprintf(scalar_info, "%lf,%lf,%lf,", static_cast<double>(max_eta_norm), static_cast<double>(total_residual_norm), static_cast<double>(current_opt_value));
+			fprintf(scalar_info, "%lf,%lf,%lf,", static_cast<double>(max_eta_norm), static_cast<double>(total_residual_norm), static_cast<double>(total_opt_value));
 #endif
 
 			if (current_eps2 < epsilon_2)
@@ -123,13 +124,13 @@ namespace alsm
 
 		void output_train_result()
 		{
-			current_opt_value = static_cast<T>(0);
+			total_opt_value = static_cast<T>(0);
 			std::cout << "opt£º ";
 			for (int i = 0; i < client_number; i++)
 			{
-				current_opt_value += client_opt_value[i];
+				total_opt_value += client_opt_value[i];
 			}
-			std::cout << current_opt_value << std::endl;
+			std::cout << total_opt_value << std::endl;
 			//printf("beta %f eps1 %f eps2 %f   opt%f at %4d iter \n",static_cast<double>(*beta), static_cast<double>(current_eps1), static_cast<double>(current_eps2),
 			//	static_cast<double>(current_opt_value), current_iter);
 		}

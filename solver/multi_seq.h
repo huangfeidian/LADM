@@ -19,7 +19,7 @@ namespace alsm
 			init_lambda();
 			while (!work_finished.load())
 			{
-				server.send();
+				lambda_server.send();
 				for (auto& i : all_clients)
 				{
 					i.recieve();
@@ -29,12 +29,13 @@ namespace alsm
 				{
 					i.send();
 				}
-				server.recieve();
-				server.compute();
-				server.current_iter++;
-				if (server.current_iter == server.max_iter)
+				lambda_server.recieve();
+				lambda_server.compute();
+				total_residual_norm = lambda_server.total_residual_norm;
+				lambda_server.current_iter++;
+				if (lambda_server.current_iter == lambda_server.max_iter)
 				{
-					fprintf(stdout, " max iteration %d is exceed\n", server.max_iter);
+					fprintf(stdout, " max iteration %d is exceed\n", lambda_server.max_iter);
 					work_finished.store(true);
 				}
 			}
@@ -43,6 +44,7 @@ namespace alsm
 			{
 				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
 			}
+			alsm_tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
 		}
 	};
 }

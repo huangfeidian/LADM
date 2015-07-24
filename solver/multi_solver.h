@@ -18,7 +18,7 @@ namespace alsm
 		std::array<cache_align_storage<std::atomic_bool>,20> all_client_turns;
 		stream<D> server_stream;
 		std::vector<alsm_client<D, T>> all_clients;
-		alsm_server<D, T> server;
+		alsm_server<D, T> lambda_server;
 		int current_client_number;
 	public:
 		int clients_number;
@@ -28,20 +28,20 @@ namespace alsm
 		T* server_residual;
 		std::vector<T*> clients_x;
 		std::vector<T> clients_opt;
-		T total_opt;//opt[0] for e opt[1] for x opt[2] for server
-		T max_eta_norm;
 		std::vector<T> clients_eta_norm;
+		T total_residual_norm;
 		T* lambda[2];//lambda[0] for server_lambda lambda[1] for lambda_hat
 		T server_beta;
 		std::vector<T> clients_beta;
 		std::vector<T*> clients_A;
 		T* b;
 		std::vector<T*> output_x;
+		T* output_lambda;
 		std::vector<int> clients_dimension;
 	public:
 		multi_solver(stream<D> in_stream, int in_client_number, int in_b_dimension, int in_max_iter, int in_wait_ms)
 			:b_dimension(in_b_dimension), wait_time(in_wait_ms), clients_number(in_client_number), server_stream(in_stream), 
-			server(&ready_thread_count, &all_client_turns[0],&work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
+			lambda_server(&ready_thread_count, &all_client_turns[0],&work_finished, in_client_number, in_wait_ms, in_max_iter, in_b_dimension, in_stream)
 		{
 			ready_thread_count.store(0);
 			for (int i = 0; i < clients_number; i++)
@@ -51,7 +51,6 @@ namespace alsm
 			work_finished.store(false);
 			clients_beta = std::vector<T>(clients_number, 0);
 			clients_opt = std::vector<T>(clients_number, 0);
-			total_opt = 0;
 			clients_x = std::vector<T*>(clients_number, nullptr);
 			clients_residual = std::vector<T*>(clients_number, nullptr);
 			clients_eta_norm = std::vector<T>(clients_number, 0);
@@ -84,15 +83,16 @@ namespace alsm
 		}
 		void init_server(stream<D> in_stream, T* in_b, T* in_lambda)
 		{
+			output_lambda = in_lambda;
 			server_stream = in_stream;
 			alsm_fromcpu<D, T>(server_stream, b, in_b, b_dimension);
 			alsm_fromcpu<D, T>(server_stream, lambda[0], in_lambda,b_dimension);
-			server.init_problem(clients_residual[0], &clients_opt[0], &clients_eta_norm[0], b, &server_beta, &clients_beta[0], lambda[1], lambda[0], server_residual);
+			lambda_server.init_problem(clients_residual[0], &clients_opt[0], &clients_eta_norm[0], b, &server_beta, &clients_beta[0], lambda[1], lambda[0], server_residual);
 		}
 
 		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho)
 		{
-			server.init_parameter(in_eps_1, in_eps_2, in_beta, in_max_beta, in_rho);
+			lambda_server.init_parameter(in_eps_1, in_eps_2, in_beta, in_max_beta, in_rho);
 			server_beta = in_beta;
 			for (int i = 0; i < clients_number; i++)
 			{
