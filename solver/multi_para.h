@@ -17,6 +17,7 @@ namespace alsm
 		}
 		void solve()
 		{
+			server_stream.set_context();
 			init_lambda();
 			std::vector<std::future<void>> async_futures(clients_number);
 			while (!work_finished.load())
@@ -42,9 +43,11 @@ namespace alsm
 
 			for (int i = 0; i < clients_number; i++)
 			{
-				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
+				client_streams[i].set_context();
+				tocpu<D, T>(client_streams[i], output_x[i], device_x[i], clients_dimension[i]);
 			}
-			alsm_tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
+			server_stream.set_context();
+			tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
 
 			
 		}

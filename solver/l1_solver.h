@@ -84,8 +84,8 @@ namespace alsm
 			T alpha_neg_one = -1.0;
 			T alpha_half = 0.5;
 			T max_sigular = 0.0;
-			alsm_fromcpu<D, T>(streams[2], A, in_A, b_dimension*x_dimension);
-			alsm_fromcpu<D, T>(streams[2], b, in_b, b_dimension);
+			fromcpu<D, T>(streams[2], A, in_A, b_dimension*x_dimension);
+			fromcpu<D, T>(streams[2], b, in_b, b_dimension);
 			int lda = (in_A_ord == MatrixMemOrd::ROW) ? x_dimension : b_dimension;
 			output_x = in_output_x;
 			output_e = in_output_e;

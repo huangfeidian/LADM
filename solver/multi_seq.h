@@ -19,16 +19,16 @@ namespace alsm
 			init_lambda();
 			while (!work_finished.load())
 			{
+				server_stream.set_context();
 				lambda_server.send();
 				for (auto& i : all_clients)
 				{
+					i.client_stream.set_context();
 					i.recieve();
 					i.compute();
-				}
-				for (auto& i : all_clients)
-				{
 					i.send();
 				}
+				server_stream.set_context();
 				lambda_server.recieve();
 				lambda_server.compute();
 				total_residual_norm = lambda_server.total_residual_norm;
@@ -42,9 +42,11 @@ namespace alsm
 
 			for (int i = 0; i < clients_number; i++)
 			{
-				alsm_tocpu<D, T>(client_streams[i], output_x[i], clients_x[i], clients_dimension[i]);
+				client_streams[i].set_context();
+				tocpu<D, T>(client_streams[i], output_x[i], device_x[i], clients_dimension[i]);
 			}
-			alsm_tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
+			server_stream.set_context();
+			tocpu<D, T>(server_stream, output_lambda, lambda[0], b_dimension);
 		}
 	};
 }

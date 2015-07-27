@@ -5,30 +5,41 @@
 #include "../util/alloca.h"
 #include <vector>
 #include <sstream>
-#define FILE_DEBUG 0
+#define FILE_DEBUG 1
+using std::vector;
 namespace alsm
 {
 	template<DeviceType D, typename T>
 	class alsm_server :public server
 	{
 	public:
-		T *lambda, *lambda_hat;
-		T *client_lambda, *client_beta;
-		T *b;
-		T* beta;
+		T beta;
 		T rho, beta_max;
-		T* client_residual;//Ax_i
-		T* total_residual;//sum{Ax_i}-b
-		T* eta_norm;//stand for \sqrt{\eta _i}||x_i^{k+1}-x_i^k||
-		T total_residual_norm;
-		T* client_opt_value;
 		T total_opt_value;//sum{client_opt_value}
 		T norm_b;//norm{b}
 		T epsilon_1;		//eps_1=norm{total_residual}/norm{b} 
 		T epsilon_2;		//eps_2=beta_k* max{eta_norm}
 		T current_eps1, current_eps2;
 		int b_dimension;
+		T total_residual_norm;
 		stream<D> server_stream;
+	public:
+		T *server_lambda;
+		T *server_lambda_hat;
+		T *b;
+		
+		T* total_residual;//sum{Ax_i}-b
+	public:
+		
+		vector<T*> clients_beta;
+		vector<T*> clients_residual;//Ax_i
+		vector<T*> clients_opt_value;
+		vector<T*> clients_eta_norm;
+	public:
+		//device dependent memory
+		vector<T*> devices_lambda;
+		vector <stream<D>> clients_stream;
+		
 #if FILE_DEBUG
 		FILE* scalar_info;
 		//std::vector<FILE*> residual_info;
@@ -41,21 +52,20 @@ namespace alsm
 			alsm_memset<D, T>(total_residual, 0, b_dimension);
 			for (int i = 0; i < client_number; i++)
 			{
-
-				axpy<D, T>(server_stream, b_dimension, 1, client_residual + i*b_dimension, total_residual);
+				axpy<D, T>(server_stream, b_dimension, 1, clients_residual[i], total_residual);
 			}
 			axpy<D, T>(server_stream, b_dimension, -1, b, total_residual);
 
 		}
 		inline void update_lambda_hat()
 		{
-			copy<D, T>(server_stream, b_dimension, lambda, lambda_hat);
-			axpy<D, T>(server_stream, b_dimension, *beta, total_residual, lambda_hat);
+			copy<D, T>(server_stream, b_dimension, server_lambda, server_lambda_hat);
+			axpy<D, T>(server_stream, b_dimension, beta, total_residual, server_lambda_hat);
 			server_stream.sync();
 		}
 		inline void update_lambda()
 		{
-			axpy<D, T>(server_stream, b_dimension, *beta, total_residual, lambda);
+			axpy<D, T>(server_stream, b_dimension, beta, total_residual, server_lambda);
 		}
 		void update_beta()
 		{
@@ -67,17 +77,17 @@ namespace alsm
 			for (int i = 0; i < client_number; i++)
 			{
 #if FILE_DEBUG
-				fprintf(scalar_info, "%lf,", static_cast<double>(eta_norm[i]));
+				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_eta_norm[i]));
 #endif
-				if (eta_norm[i]>max_eta_norm)
+				if (*clients_eta_norm[i]>max_eta_norm)
 				{
-					max_eta_norm = eta_norm[i];
+					max_eta_norm = *clients_eta_norm[i];
 
 				}
 			}
 
 			//std::cout << "eta norm " << max_eta_norm<<std::endl;
-			current_eps2 = *beta*max_eta_norm / norm_b;
+			current_eps2 = beta*max_eta_norm / norm_b;
 			
 			current_eps1 = total_residual_norm / norm_b;
 #if FILE_DEBUG
@@ -86,9 +96,9 @@ namespace alsm
 			total_opt_value = 0;
 			for (int i = 0; i < client_number; i++)
 			{
-				total_opt_value += client_opt_value[i];
+				total_opt_value += *clients_opt_value[i];
 #if FILE_DEBUG
-				fprintf(scalar_info, "%lf,", static_cast<double>(client_opt_value[i]));
+				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_opt_value[i]));
 #endif
 				//std::cout << client_opt_value[i]<<"\t";
 			}
@@ -99,19 +109,19 @@ namespace alsm
 
 			if (current_eps2 < epsilon_2)
 			{
-				*beta = *beta*rho;
+				beta = beta*rho;
 				if (current_eps1 < epsilon_1)
 				{
 					work_finished->store(true);
 				}
 			}
-			if (*beta > beta_max)
+			if (beta > beta_max)
 			{
-				*beta = beta_max;
+				beta = beta_max;
 			}
 
 #if FILE_DEBUG
-			fprintf(scalar_info, "%lf\n", static_cast<double>(*beta));
+			fprintf(scalar_info, "%lf\n", static_cast<double>(beta));
 #endif
 		}
 		virtual void compute()
@@ -128,18 +138,23 @@ namespace alsm
 			std::cout << "opt£º ";
 			for (int i = 0; i < client_number; i++)
 			{
-				total_opt_value += client_opt_value[i];
+				total_opt_value += *clients_opt_value[i];
 			}
 			std::cout << total_opt_value << std::endl;
-			//printf("beta %f eps1 %f eps2 %f   opt%f at %4d iter \n",static_cast<double>(*beta), static_cast<double>(current_eps1), static_cast<double>(current_eps2),
+			//printf("beta %f eps1 %f eps2 %f   opt%f at %4d iter \n",static_cast<double>(beta), static_cast<double>(current_eps1), static_cast<double>(current_eps2),
 			//	static_cast<double>(current_opt_value), current_iter);
 		}
 		virtual void send()
 		{
 			for (int i = 0; i < client_number; i++)
 			{
-				client_beta[i] = *beta;
+				*clients_beta[i] = beta;
 			}
+			for (int i = 0; i < client_number; i++)
+			{
+				from_server<D, T>(server_stream, devices_lambda[i], server_lambda_hat, b_dimension, clients_stream[i].device_index);
+			}
+			server_stream.sync();
 		}
 		virtual void recieve()
 		{
@@ -154,18 +169,22 @@ namespace alsm
 
 
 		}
-		void init_problem(T* in_client_residual, T* in_client_opt, T* in_client_eta_norm, T* in_b, T* in_beta, T* in_client_beta, T* in_lambda_hat, T* in_lambda, T* in_total_residual)
+		void add_client(T* client_opt_value, T* client_beta, T* client_eta_norm, T* client_residual, T* client_lambda, stream<D> client_stream)
+		{
+			clients_opt_value.push_back(client_opt_value);
+			clients_beta.push_back(client_beta);
+			clients_eta_norm.push_back(client_eta_norm);
+			clients_residual.push_back(client_residual);
+			devices_lambda.push_back(client_lambda);
+			clients_stream.push_back(client_stream);
+		}
+		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual)
 		{
 
 			b = in_b;
-			beta = in_beta;
-			lambda_hat = in_lambda_hat;
-			lambda = in_lambda;
+			server_lambda_hat = in_lambda_hat;
+			server_lambda = in_lambda;
 			total_residual = in_total_residual;
-			client_residual = in_client_residual;
-			client_opt_value = in_client_opt;
-			client_beta = in_client_beta;
-			eta_norm = in_client_eta_norm;
 			nrm2<D, T>(server_stream, b_dimension, b, &norm_b);
 			server_stream.sync();
 #if FILE_DEBUG
@@ -176,7 +195,7 @@ namespace alsm
 		void init_parameter(T in_eps1, T in_eps2, T in_beta, T in_beta_max, T in_rho)
 		{
 			rho = in_rho;
-			*beta = in_beta;
+			beta = in_beta;
 			beta_max = in_beta_max;
 			epsilon_1 = in_eps1;
 			epsilon_2 = in_eps2;

@@ -5,7 +5,7 @@
 #define ALSM_USE_MKL
 #define ALSM_USE_CPU
 #define ALSM_USE_OMP
-//#define ALSM_USE_GPU
+#define ALSM_USE_GPU
 #ifndef ALSM_USE_CPU
 #define ALSM_USE_CPU 0
 #else
@@ -51,6 +51,7 @@ extern "C"{
 
 }
 #include <malloc.h>
+
 #elif ALSM_USE_MKL
 #include <mkl.h>
 #include <cstdlib>

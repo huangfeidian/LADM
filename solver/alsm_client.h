@@ -6,13 +6,13 @@
 #include "../proximal/proximal.h"
 #include <vector>
 #include <sstream>
-#define FILE_DEBUG 1
+#define FILE_DEBUG 0
 namespace alsm
 {
 	template<DeviceType D, typename T>
 	class alsm_client :public client
 	{
-	private:
+	public:
 		T *A;// we assume the A is compact stored the so lda is either m or n
 		MatrixMemOrd A_ord;
 		int lda;
@@ -25,10 +25,10 @@ namespace alsm
 		T* client_beta;
 		const int x_dimension, b_dimension;
 		T eta_norm;//eta norm=\sqrt{eta}*norm{x^{k+1}-x^{k}}
-		T *server_eta_nrm, *server_opt, *server_residual, *server_lambda_hat;
+		T *server_eta_nrm, *server_opt, *server_residual;
 		stream<D> client_stream;
 		const FunctionObj<T> func;
-
+		int server_device_index;
 #if FILE_DEBUG
 		FILE* x_debug;
 #endif
@@ -45,21 +45,19 @@ namespace alsm
 		}
 		virtual void recieve()
 		{
-			
-			sigma = eta*(*client_beta);
-			copy<D, T>(client_stream, b_dimension, server_lambda_hat, lambda_hat);
+
 		}
 		virtual void send()
 		{
+			to_server<D, T>(client_stream, server_residual, residual, b_dimension, server_device_index);
 			client_stream.sync();
 			eta_norm *= sqrt(eta);
 			*server_eta_nrm = eta_norm;
 			*server_opt = opt_value;
-			copy<D, T>(client_stream, b_dimension, residual, server_residual);
-			client_stream.sync();
 		}
 		virtual void compute()
 		{
+			sigma = eta*(*client_beta);
 			//output(x_1);
 			if (IdentityMatrix)
 			{
@@ -86,7 +84,7 @@ namespace alsm
 			//output(x_1);
 			if (IdentityMatrix)
 			{
-				copy(client_stream, b_dimension, x_1, residual);
+				copy<D,T>(client_stream, b_dimension, x_1, residual);
 			}
 			else
 			{
@@ -113,6 +111,7 @@ namespace alsm
 		}
 		virtual void task()
 		{
+			client_stream.set_context();
 			recieve();
 			compute();
 			send();
@@ -148,12 +147,12 @@ namespace alsm
 #endif
 
 		}
-		void connect_server(T* in_eta_nrm, T* in_opt, T* in_residual, T* in_lambda_hat)
+		void connect_server(int in_server_device_index,T* in_eta_nrm, T* in_opt, T* in_residual)
 		{
+			server_device_index = in_server_device_index;
 			server_eta_nrm = in_eta_nrm;
 			server_opt = in_opt;
 			server_residual = in_residual;
-			server_lambda_hat = in_lambda_hat;
 		}
 		~alsm_client()
 		{
