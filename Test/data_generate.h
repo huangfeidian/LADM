@@ -47,13 +47,13 @@ float normal_matrix(float* A, int m, int n)//A is col first
 	}
 	return normA;
 }
-void generate_random(float* in_vec, int length, float spacity = 1)
+void generate_random(float* in_vec, int length, float scarcity = 1)
 {
 	std::random_device rd;
 	std::uniform_real_distribution<float> uniform_dist(0, 1);
 	std::uniform_int_distribution<int> spacity_dist(0);
 	std::mt19937 seed(rd());
-	if (spacity == 1)
+	if (scarcity == 1)
 	{
 		for (int i = 0; i < length; i++)
 		{
@@ -62,7 +62,7 @@ void generate_random(float* in_vec, int length, float spacity = 1)
 	}
 	else
 	{
-		for (int i = 0; i < length*spacity; i++)
+		for (int i = 0; i < length*scarcity; i++)
 		{
 			in_vec[spacity_dist(seed) % length] = uniform_dist(seed);
 		}
@@ -82,14 +82,14 @@ void normalize_vector(float* in_vec, int length)
 		in_vec[i] = in_vec[i] / norm;
 	}
 }
-float generate_test_data(float* A, float* x, float* e, float* b, int m, int n, float spacity)
+float generate_test_data(float* A, float* x, float* e, float* b, int m, int n, float scarcity)
 {
 	generate_random(A, m*n);
 	normal_matrix(A, m, n);
-	generate_random(x, n, spacity);
+	generate_random(x, n, scarcity);
 	normalize_vector(x, n);
-	generate_random(e, n, spacity);
-	normalize_vector(e, n);
+	generate_random(e, m, scarcity);
+	normalize_vector(e, m);
 	stream<DeviceType::CPU> main_cpu_stream;
 	copy<DeviceType::CPU, float>(main_cpu_stream, m, e, b);
 	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, 1, A, m, x, 1, b);
