@@ -5,7 +5,8 @@
 #include "../blas/level_1.h"
 #include "../blas/level_2.h"
 using namespace alsm;
-void load_data(float* A, float* b, int m, int n, std::string A_file, std::string b_file)
+template <typename T>
+void load_data(T* A, T* b, int m, int n, std::string A_file, std::string b_file)
 {
 	std::ifstream A_stream(A_file);
 	std::ifstream B_stream(b_file);
@@ -21,9 +22,10 @@ void load_data(float* A, float* b, int m, int n, std::string A_file, std::string
 		}
 	}
 }
-float normal_matrix(float* A, int m, int n)//A is col first
+template<typename T>
+T normal_matrix(T* A, int m, int n)//A is col first
 {
-	float normA = 0;
+	T normA = 0;
 	for (int i = 0; i < m; i++)//the A is col first stored
 	{
 		normA = 0;
@@ -34,7 +36,7 @@ float normal_matrix(float* A, int m, int n)//A is col first
 		normA = sqrt(normA);
 		for (int j = 0; j < n; j++)
 		{
-			A[j*m + i] = (float) (A[j*m + i] / normA);
+			A[j*m + i] = (T) (A[j*m + i] / normA);
 		}
 	}
 	normA = 0;
@@ -47,10 +49,11 @@ float normal_matrix(float* A, int m, int n)//A is col first
 	}
 	return normA;
 }
-void generate_random(float* in_vec, int length, float scarcity = 1)
+template<typename T>
+void generate_random(T* in_vec, int length, T scarcity = 1)
 {
 	std::random_device rd;
-	std::uniform_real_distribution<float> uniform_dist(0, 1);
+	std::uniform_real_distribution<T> uniform_dist(0, 1);
 	std::uniform_int_distribution<int> spacity_dist(0);
 	std::mt19937 seed(rd());
 	if (scarcity == 1)
@@ -69,9 +72,10 @@ void generate_random(float* in_vec, int length, float scarcity = 1)
 	}
 
 }
-void normalize_vector(float* in_vec, int length)
+template<typename T>
+void normalize_vector(T* in_vec, int length)
 {
-	float norm = 0;
+	T norm = 0;
 	for (int i = 0; i < length; i++)
 	{
 		norm += in_vec[i] * in_vec[i];
@@ -82,7 +86,8 @@ void normalize_vector(float* in_vec, int length)
 		in_vec[i] = in_vec[i] / norm;
 	}
 }
-float generate_test_data(float* A, float* x, float* e, float* b, int m, int n, float scarcity)
+template<typename T>
+T generate_test_data(T* A, T* x, T* e, T* b, int m, int n, T scarcity)
 {
 	generate_random(A, m*n);
 	normal_matrix(A, m, n);
@@ -91,12 +96,12 @@ float generate_test_data(float* A, float* x, float* e, float* b, int m, int n, f
 	generate_random(e, m, scarcity);
 	normalize_vector(e, m);
 	stream<DeviceType::CPU> main_cpu_stream;
-	copy<DeviceType::CPU, float>(main_cpu_stream, m, e, b);
-	gemv<DeviceType::CPU, float>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, 1, A, m, x, 1, b);
-	float e_opt = 0;
-	float x_opt = 0;
-	asum<DeviceType::CPU, float>(main_cpu_stream, m, e, &e_opt);
-	asum<DeviceType::CPU, float>(main_cpu_stream, n, x, &x_opt);
+	copy<DeviceType::CPU, T>(main_cpu_stream, m, e, b);
+	gemv<DeviceType::CPU, T>(main_cpu_stream, MatrixTrans::NORMAL, MatrixMemOrd::COL, m, n, 1, A, m, x, 1, b);
+	T e_opt = 0;
+	T x_opt = 0;
+	asum<DeviceType::CPU, T>(main_cpu_stream, m, e, &e_opt);
+	asum<DeviceType::CPU, T>(main_cpu_stream, n, x, &x_opt);
 	return e_opt + x_opt;
 }
 #endif
