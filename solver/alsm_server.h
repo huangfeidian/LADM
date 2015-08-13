@@ -16,10 +16,12 @@ namespace alsm
 		T beta;
 		T rho, beta_max;
 		T total_opt_value;//sum{client_opt_value}
+		T old_opt_value;
 		T norm_b;//norm{b}
 		T epsilon_1;		//eps_1=norm{total_residual}/norm{b} 
 		T epsilon_2;		//eps_2=beta_k* max{eta_norm}
-		T current_eps1, current_eps2;
+		T epsilon_3;//for additional stop criterion
+		T current_eps1, current_eps2,current_eps3;
 		int b_dimension;
 		T total_residual_norm;
 		stream<D> server_stream;
@@ -27,19 +29,22 @@ namespace alsm
 		T *server_lambda;
 		T *server_lambda_hat;
 		T *b;
-		
-		T* total_residual;//sum{Ax_i}-b
+		T *total_residual;//sum{Ax_i}-b
 	public:
 		
 		vector<T*> clients_beta;
 		vector<T*> clients_residual;//Ax_i
+		vector<T*> clients_xG_diff;
 		vector<T*> clients_opt_value;
-		vector<T*> clients_eta_norm;
+		vector<T*> clients_xdiff_norm;
+		vector<T*> clients_xold_norm;
+		vector<T> clients_sqrt_eta;
 	public:
 		//device dependent memory
 		vector<T*> devices_lambda;
 		vector <stream<D>> clients_stream;
-		
+	public:
+		StopCriteria stop_type;
 #if FILE_DEBUG
 		FILE* scalar_info;
 		//std::vector<FILE*> residual_info;
@@ -77,11 +82,11 @@ namespace alsm
 			for (int i = 0; i < client_number; i++)
 			{
 #if FILE_DEBUG
-				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_eta_norm[i]));
+				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_xdiff_norm[i]));
 #endif
-				if (*clients_eta_norm[i]>max_eta_norm)
+				if (*clients_xdiff_norm[i]*clients_sqrt_eta[i]>max_eta_norm)
 				{
-					max_eta_norm = *clients_eta_norm[i];
+					max_eta_norm = *clients_xdiff_norm[i]*clients_sqrt_eta[i];
 
 				}
 			}
@@ -110,14 +115,68 @@ namespace alsm
 			if (current_eps2 < epsilon_2)
 			{
 				beta = beta*rho;
-				if (current_eps1 < epsilon_1)
-				{
-					work_finished->store(true);
-				}
 			}
 			if (beta > beta_max)
 			{
 				beta = beta_max;
+			}
+			switch (stop_type)
+			{
+			case StopCriteria::ground_truth:
+				{
+					T total_xG_diff = 0;
+					for (auto i : clients_xG_diff)
+					{
+						total_xG_diff += (*i)*(*i);
+					}
+					total_xG_diff = sqrt(total_xG_diff);
+					if (total_xG_diff <= epsilon_3)
+					{
+						work_finished->store(true);
+					}
+				}
+				
+				break;
+			case StopCriteria::duality_gap:
+				if (current_eps1 < epsilon_1)
+				{
+					work_finished->store(true);
+				}
+				break;
+			case StopCriteria::dual_tol:
+				if (current_eps1 < epsilon_1&&current_eps2 < epsilon_2)
+				{
+					work_finished->store(true);
+				}
+				break;
+			case StopCriteria::increment:
+			{
+				T total_old_nrm = 0;
+				T total_diff_nrm = 0;
+				for (auto i : clients_xdiff_norm)
+				{
+					total_diff_nrm += (*i)*(*i);
+				}
+				for (auto i : clients_xold_norm)
+				{
+					total_old_nrm += (*i)*(*i);
+				}
+				total_diff_nrm = sqrt(total_diff_nrm);
+				total_old_nrm = sqrt(total_old_nrm);
+				if (total_diff_nrm < epsilon_3*total_old_nrm)
+				{
+					work_finished->store(true);
+				}
+			}
+				break;
+			case StopCriteria::objective_value:
+				if (abs(old_opt_value - total_opt_value) <= old_opt_value*epsilon_3)
+				{
+					work_finished->store(true);
+				}
+				old_opt_value = total_opt_value;
+			default:
+				break;
 			}
 
 #if FILE_DEBUG
@@ -169,18 +228,20 @@ namespace alsm
 
 
 		}
-		void add_client(T* client_opt_value, T* client_beta, T* client_eta_norm, T* client_residual, T* client_lambda, stream<D> client_stream)
+		void add_client(T* client_opt_value, T* client_beta, T* client_eta_norm, T* client_residual, T* client_lambda, stream<D> client_stream,T* client_xG_diff=nullptr)
 		{
 			clients_opt_value.push_back(client_opt_value);
 			clients_beta.push_back(client_beta);
-			clients_eta_norm.push_back(client_eta_norm);
+			clients_xdiff_norm.push_back(client_eta_norm);
 			clients_residual.push_back(client_residual);
 			devices_lambda.push_back(client_lambda);
 			clients_stream.push_back(client_stream);
+			clients_xG_diff.push_back(client_xG_diff);
 		}
-		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual)
+		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,T in_old_opt,StopCriteria in_stop_type=StopCriteria::dual_tol)
 		{
-
+			old_opt_value = in_old_opt;
+			stop_type = in_stop_type;
 			b = in_b;
 			server_lambda_hat = in_lambda_hat;
 			server_lambda = in_lambda;
@@ -192,13 +253,14 @@ namespace alsm
 #endif
 			//std::cout << "norm b " << norm_b << std::endl;
 		}
-		void init_parameter(T in_eps1, T in_eps2, T in_beta, T in_beta_max, T in_rho)
+		void init_parameter(T in_eps1, T in_eps2, T in_beta, T in_beta_max, T in_rho,T in_eps3)
 		{
 			rho = in_rho;
 			beta = in_beta;
 			beta_max = in_beta_max;
 			epsilon_1 = in_eps1;
 			epsilon_2 = in_eps2;
+			epsilon_3 = in_eps3;
 		}
 		void set_debug_file()
 		{

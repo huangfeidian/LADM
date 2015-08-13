@@ -17,18 +17,22 @@ namespace alsm
 		MatrixMemOrd A_ord;
 		int lda;
 		T *x_1, *x_2;
+		T* xG;
 		bool IdentityMatrix;
 		T *lambda_hat, *residual;// residual=Ax
 		T* v;//A^T \lambda /\sigma
 		T eta;// the paper says eta must be bigger than n*norm{A} so we assign eta=n* norm{A}*2 
-		T  sigma, opt_value;//sigma=eta*beta
+		T  sigma;//sigma=eta*beta
 		T* client_beta;
 		const int x_dimension, b_dimension;
-		T eta_norm;//eta norm=\sqrt{eta}*norm{x^{k+1}-x^{k}}
-		T *server_eta_nrm, *server_opt, *server_residual;
+		T *server_diff_nrm;
+		T* server_diff_xG_norm;
+		T *server_opt, *server_residual;
+		T* server_old_nrm;
 		stream<D> client_stream;
 		const FunctionObj<T> func;
 		int server_device_index;
+		StopCriteria stop_type;
 #if FILE_DEBUG
 		FILE* x_debug;
 #endif
@@ -51,9 +55,6 @@ namespace alsm
 		{
 			to_server<D, T>(client_stream, server_residual, residual, b_dimension, server_device_index);
 			client_stream.sync();
-			eta_norm *= sqrt(eta);
-			*server_eta_nrm = eta_norm;
-			*server_opt = opt_value;
 		}
 		virtual void compute()
 		{
@@ -74,13 +75,27 @@ namespace alsm
 
 			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma/2, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
 			//output(x_2);
+			if (stop_type == StopCriteria::increment)
+			{
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_old_nrm);
+			}
 			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
-			nrm2<D, T>(client_stream, x_dimension, x_1, &eta_norm);//eta_norm=nrm{x_1-x_2}
-			
+			if (stop_type == StopCriteria::increment)
+			{
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_diff_nrm);
+			}
+
 			//std::cout <<"eta_norm " <<eta_norm << std::endl;
 			//std::swap(x_1, x_2);//x_1=x_2;
 			copy<D, T>(client_stream, x_dimension, x_2, x_1);
+			if (stop_type==StopCriteria::ground_truth)
+			{
+				assert(xG != nullptr);
+				axpy<D, T>(client_stream, x_dimension, -1.0, xG, x_1);
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_diff_xG_norm);
+				copy<D, T>(client_stream, x_dimension, x_2, x_1);
+			}
 			//output(x_1);
 			if (IdentityMatrix)
 			{
@@ -92,17 +107,17 @@ namespace alsm
 			}
 			if (func.h == UnaryFunc::Abs)
 			{
-				asum<D, T>(client_stream, x_dimension, x_1, &opt_value);
+				asum<D, T>(client_stream, x_dimension, x_1,server_opt);
 			}
 			else
 			{
 				if (func.h == UnaryFunc::Square)
 				{
-					nrm2<D, T>(client_stream, x_dimension, x_1, &opt_value);
+					nrm2<D, T>(client_stream, x_dimension, x_1, server_opt);
 				}
 				else
 				{
-					BatchFuncEval<D, T>(client_stream, func, x_dimension, x_1, &opt_value);//eval{func{x_1}}
+					BatchFuncEval<D, T>(client_stream, func, x_dimension, x_1,server_opt);//eval{func{x_1}}
 				}
 			}
 
@@ -123,7 +138,7 @@ namespace alsm
 		{
 
 		}
-		void init_problem(bool is_identity, MatrixMemOrd in_A_ord, T* in_A, T* in_x, T* in_v, T* in_client_beta, T* in_client_lambda, T* in_client_residual, T in_eta)
+		void init_problem(bool is_identity, MatrixMemOrd in_A_ord, T* in_A, T* in_x, T* in_v, T* in_client_beta, T* in_client_lambda, T* in_client_residual, T in_eta,StopCriteria in_stop_type,T* in_xG=nullptr)
 		{
 			IdentityMatrix = is_identity;
 			A_ord = in_A_ord;
@@ -133,9 +148,11 @@ namespace alsm
 			lambda_hat = in_client_lambda;
 			A = in_A;
 			v = in_v;
+			xG = in_xG;
 			client_beta = in_client_beta;
 			residual = in_client_residual;
 			eta = in_eta;
+			stop_type = in_stop_type;
 			std::cout << "the eta is " << eta << std::endl;
 #if FILE_DEBUG
 			std::stringstream file_name;
@@ -147,12 +164,13 @@ namespace alsm
 #endif
 
 		}
-		void connect_server(int in_server_device_index,T* in_eta_nrm, T* in_opt, T* in_residual)
+		void connect_server(int in_server_device_index,T* in_diff_nrm, T* in_opt, T* in_residual,T* in_xG_diff_norm=nullptr)
 		{
 			server_device_index = in_server_device_index;
-			server_eta_nrm = in_eta_nrm;
+			server_diff_nrm = in_diff_nrm;
 			server_opt = in_opt;
 			server_residual = in_residual;
+			server_diff_xG_norm = in_xG_diff_norm;
 		}
 		~alsm_client()
 		{

@@ -34,13 +34,16 @@ namespace alsm
 		T* total_residual;
 		std::vector<T*> device_x;
 		std::vector<T> clients_opt;
-		std::vector<T> clients_eta_norm;
+		std::vector<T> clients_diff_norm;
+		std::vector<T> clients_diff_asum;
+		std::vector<T> clients_xG_diff_norm;
 		T total_residual_norm;
 		T* lambda[2];//lambda[0] for server_lambda lambda[1] for lambda_hat
 		T server_beta;
 		std::vector<T> clients_beta;
 	public:
 		std::vector<T*> clients_A;
+		StopCriteria stop_type;
 		T* b;
 		std::vector<T*> output_x;
 		T* output_lambda;
@@ -61,7 +64,9 @@ namespace alsm
 			device_x = std::vector<T*>(clients_number, nullptr);
 			clients_residual = std::vector<T*>(clients_number, nullptr);
 			device_residual = std::vector<T*>(clients_number, nullptr);
-			clients_eta_norm = std::vector<T>(clients_number, 0);
+			clients_diff_norm = std::vector<T>(clients_number, 0);
+			clients_diff_asum = std::vector<T>(clients_number, 0);
+			clients_xG_diff_norm = std::vector<T>(clients_number, 0);
 			clients_A = std::vector<T*>(clients_number, nullptr);
 			client_streams = std::vector<stream<D>>(clients_number, stream<D>());
 			current_client_number = 0;
@@ -92,28 +97,39 @@ namespace alsm
 			lambda[0] = total_lambda;
 			lambda[1] = total_lambda + b_dimension;
 		}
-		void init_server(stream<D> in_stream, T* in_b, T* in_lambda)
+		void init_server(stream<D> in_stream, T* in_b, T* in_lambda,T init_opt=0,StopCriteria in_stop_type=StopCriteria::dual_tol)
 		{
 			output_lambda = in_lambda;
 			server_stream = in_stream;
+			stop_type = in_stop_type;
 			fromcpu<D, T>(server_stream, b, in_b, b_dimension);
 			fromcpu<D, T>(server_stream, lambda[0], in_lambda,b_dimension);
-			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual);
+			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual,init_opt,in_stop_type);
 		}
 
-		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho)
+		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho,T in_eps_3)
 		{
-			lambda_server.init_parameter(in_eps_1, in_eps_2, in_beta, in_max_beta, in_rho);
+			lambda_server.init_parameter(in_eps_1, in_eps_2, in_beta, in_max_beta, in_rho,in_eps_3);
 			server_beta = in_beta;
 			for (int i = 0; i < clients_number; i++)
 			{
 				clients_beta[i] = in_beta;
 			}
 		}
-		void add_client(stream<D> in_stream, int in_x_dimension, FunctionObj<T> in_func, T* in_A, bool is_Identity, MatrixMemOrd in_A_ord, T* in_x)
+		void add_client(stream<D> in_stream, int in_x_dimension, FunctionObj<T> in_func, T* in_A, bool is_Identity, MatrixMemOrd in_A_ord, T* in_x,T* in_xG=nullptr)
 		{
 			in_stream.set_context();
 			T* client_x = alsm_malloc<D, T>(in_stream,3 * in_x_dimension);
+			T* client_xG = nullptr;
+			if (in_xG == nullptr)
+			{
+				client_xG = nullptr;
+			}
+			else
+			{
+				client_xG = alsm_malloc<D, T>(in_stream, in_x_dimension);
+			}
+			
 			T* current_device_residual = alsm_malloc<D, T>(in_stream,b_dimension);
 			T* current_device_lambda = alsm_malloc<D, T>(in_stream, b_dimension);
 			device_residual[current_client_number] = current_device_residual;
@@ -142,6 +158,12 @@ namespace alsm
 				in_stream.sync();
 				max_sigular = max_sigular*max_sigular*clients_number;
 			}
+			if (in_xG != nullptr)
+			{
+				client_xG = alsm_malloc<D, T>(in_stream, in_x_dimension);
+				fromcpu<D, T>(in_stream, client_xG, in_xG, in_x_dimension);
+			}
+			
 			device_x[current_client_number] = client_x;
 			clients_dimension[current_client_number] = in_x_dimension;
 			output_x[current_client_number] = in_x;
@@ -149,9 +171,9 @@ namespace alsm
 			client_streams[current_client_number] = in_stream;
 			int i = current_client_number;
 			alsm_client<D, T> temp_client(&work_finished, &all_client_turns[i], &ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func, in_stream);
-			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], device_lambda[i], device_residual[i], max_sigular);
-			temp_client.connect_server(server_stream.device_index,&clients_eta_norm[i], &clients_opt[i], clients_residual[i]);
-			lambda_server.add_client(&clients_opt[i], &clients_beta[i], &clients_eta_norm[i], clients_residual[i], device_lambda[i], in_stream);
+			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], device_lambda[i], device_residual[i],stop_type, max_sigular);
+			temp_client.connect_server(server_stream.device_index,&clients_diff_norm[i], &clients_opt[i], clients_residual[i],&clients_xG_diff_norm[i]);
+			lambda_server.add_client(&clients_opt[i], &clients_beta[i], &clients_diff_norm[i], clients_residual[i], device_lambda[i], in_stream,  &clients_xG_diff_norm[i]);
 			all_clients.push_back(temp_client);
 			current_client_number++;
 		}
