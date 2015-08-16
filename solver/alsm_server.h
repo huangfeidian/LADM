@@ -33,18 +33,18 @@ namespace alsm
 	public:
 		
 		vector<T*> clients_beta;
-		vector<T*> clients_residual;//Ax_i
-		vector<T*> clients_xG_diff;
-		vector<T*> clients_opt_value;
-		vector<T*> clients_xdiff_norm;
-		vector<T*> clients_xold_norm;
+		vector<T*> clients_residual;//for all Ax_i
 		vector<T> clients_sqrt_eta;
+	public://counters to decide whether to stop
+		StopCriteria stop_type;
+		vector<T*> clients_xG_diff_nrm2;
+		vector<T*> clients_opt_value;
+		vector<T*> clients_xdiff_nrm2;
+		vector<T*> clients_xold_nrm2;
 	public:
 		//device dependent memory
 		vector<T*> devices_lambda;
 		vector <stream<D>> clients_stream;
-	public:
-		StopCriteria stop_type;
 #if FILE_DEBUG
 		FILE* scalar_info;
 		//std::vector<FILE*> residual_info;
@@ -82,11 +82,11 @@ namespace alsm
 			for (int i = 0; i < client_number; i++)
 			{
 #if FILE_DEBUG
-				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_xdiff_norm[i]));
+				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_xdiff_nrm2[i]));
 #endif
-				if (*clients_xdiff_norm[i]*clients_sqrt_eta[i]>max_eta_norm)
+				if (*clients_xdiff_nrm2[i]*clients_sqrt_eta[i]>max_eta_norm)
 				{
-					max_eta_norm = *clients_xdiff_norm[i]*clients_sqrt_eta[i];
+					max_eta_norm = *clients_xdiff_nrm2[i]*clients_sqrt_eta[i];
 
 				}
 			}
@@ -125,7 +125,7 @@ namespace alsm
 			case StopCriteria::ground_truth:
 				{
 					T total_xG_diff = 0;
-					for (auto i : clients_xG_diff)
+					for (auto i : clients_xG_diff_nrm2)
 					{
 						total_xG_diff += (*i)*(*i);
 					}
@@ -153,11 +153,11 @@ namespace alsm
 			{
 				T total_old_nrm = 0;
 				T total_diff_nrm = 0;
-				for (auto i : clients_xdiff_norm)
+				for (auto i : clients_xdiff_nrm2)
 				{
 					total_diff_nrm += (*i)*(*i);
 				}
-				for (auto i : clients_xold_norm)
+				for (auto i : clients_xold_nrm2)
 				{
 					total_old_nrm += (*i)*(*i);
 				}
@@ -223,24 +223,25 @@ namespace alsm
 		alsm_server(std::atomic_int* in_free_thread_count, cache_align_storage<std::atomic_bool>* in_client_turns, std::atomic_bool* in_work_finished, int in_client_number,
 			int in_wait_time, int in_max_iter, int in_b_dimesion, stream<D>& in_stream) :
 			server(in_free_thread_count,in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter), 
-			b_dimension(in_b_dimesion), server_stream(in_stream)
+			b_dimension(in_b_dimesion), server_stream(in_stream), old_opt_value(0)
 		{
 
 
 		}
-		void add_client(T* client_opt_value, T* client_beta, T* client_eta_norm, T* client_residual, T* client_lambda, stream<D> client_stream,T* client_xG_diff=nullptr)
+		void add_client(T* client_opt_value, T* client_beta, T client_eta, T* client_residual, T* client_lambda, T* client_xold_nrm2,T* client_xdiff_nrm2,stream<D> client_stream,T* client_xG_diff=nullptr)
 		{
 			clients_opt_value.push_back(client_opt_value);
 			clients_beta.push_back(client_beta);
-			clients_xdiff_norm.push_back(client_eta_norm);
+			clients_sqrt_eta.push_back(std::sqrt(client_eta));
+			clients_xold_nrm2.push_back(client_xold_nrm2);
+			clients_xdiff_nrm2.push_back(client_xdiff_nrm2);
 			clients_residual.push_back(client_residual);
 			devices_lambda.push_back(client_lambda);
 			clients_stream.push_back(client_stream);
-			clients_xG_diff.push_back(client_xG_diff);
+			clients_xG_diff_nrm2.push_back(client_xG_diff);
 		}
-		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,T in_old_opt,StopCriteria in_stop_type=StopCriteria::dual_tol)
+		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,StopCriteria in_stop_type=StopCriteria::dual_tol)
 		{
-			old_opt_value = in_old_opt;
 			stop_type = in_stop_type;
 			b = in_b;
 			server_lambda_hat = in_lambda_hat;

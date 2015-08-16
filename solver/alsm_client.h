@@ -25,10 +25,10 @@ namespace alsm
 		T  sigma;//sigma=eta*beta
 		T* client_beta;
 		const int x_dimension, b_dimension;
-		T *server_diff_nrm;
-		T* server_diff_xG_norm;
+		T *server_x_diff_nrm2;
+		T* server_diff_xG_nrm2;
 		T *server_opt, *server_residual;
-		T* server_old_nrm;
+		T* server_x_old_nrm2;
 		stream<D> client_stream;
 		const FunctionObj<T> func;
 		int server_device_index;
@@ -77,13 +77,13 @@ namespace alsm
 			//output(x_2);
 			if (stop_type == StopCriteria::increment)
 			{
-				nrm2<D, T>(client_stream, x_dimension, x_1, server_old_nrm);
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_x_old_nrm2);
 			}
 			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
 			if (stop_type == StopCriteria::increment)
 			{
-				nrm2<D, T>(client_stream, x_dimension, x_1, server_diff_nrm);
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_x_diff_nrm2);
 			}
 
 			//std::cout <<"eta_norm " <<eta_norm << std::endl;
@@ -93,7 +93,7 @@ namespace alsm
 			{
 				assert(xG != nullptr);
 				axpy<D, T>(client_stream, x_dimension, -1.0, xG, x_1);
-				nrm2<D, T>(client_stream, x_dimension, x_1, server_diff_xG_norm);
+				nrm2<D, T>(client_stream, x_dimension, x_1, server_diff_xG_nrm2);
 				copy<D, T>(client_stream, x_dimension, x_2, x_1);
 			}
 			//output(x_1);
@@ -153,6 +153,11 @@ namespace alsm
 			residual = in_client_residual;
 			eta = in_eta;
 			stop_type = in_stop_type;
+			if (stop_type == StopCriteria::ground_truth&& in_xG == nullptr)
+			{
+				printf("the stop criteria is ground truth but the xG is null\n");
+				exit(1);
+			}
 			std::cout << "the eta is " << eta << std::endl;
 #if FILE_DEBUG
 			std::stringstream file_name;
@@ -164,13 +169,14 @@ namespace alsm
 #endif
 
 		}
-		void connect_server(int in_server_device_index,T* in_diff_nrm, T* in_opt, T* in_residual,T* in_xG_diff_norm=nullptr)
+		void connect_server(int in_server_device_index,T* in_x_diff_nrm, T* in_opt, T* in_residual,T* in_old_nrm,T* in_xG_diff_norm=nullptr)
 		{
 			server_device_index = in_server_device_index;
-			server_diff_nrm = in_diff_nrm;
+			server_x_diff_nrm2 = in_x_diff_nrm;
 			server_opt = in_opt;
+			server_x_old_nrm2 = in_old_nrm;
 			server_residual = in_residual;
-			server_diff_xG_norm = in_xG_diff_norm;
+			server_diff_xG_nrm2 = in_xG_diff_norm;
 		}
 		~alsm_client()
 		{

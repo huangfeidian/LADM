@@ -31,7 +31,7 @@ namespace alsm
 				server_stream.set_context();
 				lambda_server.recieve();
 				lambda_server.compute();
-				total_residual_norm = lambda_server.total_residual_norm;
+				T total_residual_norm = lambda_server.total_residual_norm;
 				lambda_server.current_iter++;
 				if (lambda_server.current_iter == lambda_server.max_iter)
 				{
