@@ -81,10 +81,8 @@ namespace alsm
 			}
 			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
-			if (stop_type == StopCriteria::increment)
-			{
-				nrm2<D, T>(client_stream, x_dimension, x_1, server_x_diff_nrm2);
-			}
+			nrm2<D, T>(client_stream, x_dimension, x_1, server_x_diff_nrm2);
+
 
 			//std::cout <<"eta_norm " <<eta_norm << std::endl;
 			//std::swap(x_1, x_2);//x_1=x_2;
@@ -169,12 +167,12 @@ namespace alsm
 #endif
 
 		}
-		void connect_server(int in_server_device_index,T* in_x_diff_nrm, T* in_opt, T* in_residual,T* in_old_nrm,T* in_xG_diff_norm=nullptr)
+		void connect_server(int in_server_device_index, T* in_opt, T* in_residual, T* in_x_old_nrm, T* in_x_diff_nrm, T* in_xG_diff_norm = nullptr)
 		{
 			server_device_index = in_server_device_index;
 			server_x_diff_nrm2 = in_x_diff_nrm;
 			server_opt = in_opt;
-			server_x_old_nrm2 = in_old_nrm;
+			server_x_old_nrm2 = in_x_old_nrm;
 			server_residual = in_residual;
 			server_diff_xG_nrm2 = in_xG_diff_norm;
 		}

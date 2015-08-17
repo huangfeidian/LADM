@@ -16,7 +16,7 @@ namespace alsm
 		T beta;
 		T rho, beta_max;
 		T total_opt_value;//sum{client_opt_value}
-		T old_opt_value;
+		T target_opt_value;
 		T norm_b;//norm{b}
 		T epsilon_1;		//eps_1=norm{total_residual}/norm{b} 
 		T epsilon_2;		//eps_2=beta_k* max{eta_norm}
@@ -82,7 +82,7 @@ namespace alsm
 			for (int i = 0; i < client_number; i++)
 			{
 #if FILE_DEBUG
-				fprintf(scalar_info, "%lf,", static_cast<double>(*clients_xdiff_nrm2[i]));
+				fprintf(scalar_info, "%lf,", static_cast<double>(clients_sqrt_eta[i] *(*clients_xdiff_nrm2[i])));
 #endif
 				if (*clients_xdiff_nrm2[i]*clients_sqrt_eta[i]>max_eta_norm)
 				{
@@ -95,9 +95,6 @@ namespace alsm
 			current_eps2 = beta*max_eta_norm / norm_b;
 			
 			current_eps1 = total_residual_norm / norm_b;
-#if FILE_DEBUG
-			fprintf(scalar_info, "%lf,%lf,", static_cast<double>(current_eps1), static_cast<double>(current_eps2));
-#endif
 			total_opt_value = 0;
 			for (int i = 0; i < client_number; i++)
 			{
@@ -130,6 +127,8 @@ namespace alsm
 						total_xG_diff += (*i)*(*i);
 					}
 					total_xG_diff = sqrt(total_xG_diff);
+					current_eps3 = total_xG_diff;
+					
 					if (total_xG_diff <= epsilon_3)
 					{
 						work_finished->store(true);
@@ -170,17 +169,19 @@ namespace alsm
 			}
 				break;
 			case StopCriteria::objective_value:
-				if (abs(old_opt_value - total_opt_value) <= old_opt_value*epsilon_3)
+				current_eps3 = abs(target_opt_value - total_opt_value) / target_opt_value;
+				if (current_eps3<epsilon_3)
 				{
 					work_finished->store(true);
 				}
-				old_opt_value = total_opt_value;
 			default:
 				break;
 			}
 
 #if FILE_DEBUG
-			fprintf(scalar_info, "%lf\n", static_cast<double>(beta));
+			fprintf(scalar_info, "%lf,", static_cast<double>(beta));
+			fprintf(scalar_info, "%lf,%lf,", static_cast<double>(current_eps1), static_cast<double>(current_eps2));
+			fprintf(scalar_info, "%lf\n", static_cast<double>(current_eps3));
 #endif
 		}
 		virtual void compute()
@@ -223,7 +224,7 @@ namespace alsm
 		alsm_server(std::atomic_int* in_free_thread_count, cache_align_storage<std::atomic_bool>* in_client_turns, std::atomic_bool* in_work_finished, int in_client_number,
 			int in_wait_time, int in_max_iter, int in_b_dimesion, stream<D>& in_stream) :
 			server(in_free_thread_count,in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter), 
-			b_dimension(in_b_dimesion), server_stream(in_stream), old_opt_value(0)
+			b_dimension(in_b_dimesion), server_stream(in_stream), target_opt_value(0.01)
 		{
 
 
@@ -240,9 +241,10 @@ namespace alsm
 			clients_stream.push_back(client_stream);
 			clients_xG_diff_nrm2.push_back(client_xG_diff);
 		}
-		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,StopCriteria in_stop_type=StopCriteria::dual_tol)
+		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,StopCriteria in_stop_type,T in_target_opt)
 		{
 			stop_type = in_stop_type;
+			target_opt_value = in_target_opt;
 			b = in_b;
 			server_lambda_hat = in_lambda_hat;
 			server_lambda = in_lambda;
@@ -273,12 +275,11 @@ namespace alsm
 			{
 				fprintf(scalar_info, "eta_norm%d,", i);
 			}
-			fprintf(scalar_info, "eps1,eps2,");
 			for (int i = 0; i < client_number; i++)
 			{
 				fprintf(scalar_info, "client_opt%d,", i);
 			}
-			fprintf(scalar_info, "max_eta_norm,total_residual_norm,current_opt_value,beta\n");
+			fprintf(scalar_info, "max_eta_norm,total_residual_norm,current_opt_value,beta,eps1,eps2,eps3\n");
 			//std::stringstream file_name_stream;
 			//for (int i = 0; i < client_number; i++)
 			//{

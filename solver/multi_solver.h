@@ -103,48 +103,14 @@ namespace alsm
 			lambda[0] = total_lambda;
 			lambda[1] = total_lambda + b_dimension;
 		}
-		void init_server(stream<D> in_stream, T* in_b, T* in_lambda,StopCriteria in_stop_type=StopCriteria::dual_tol)
+		void init_server(stream<D> in_stream, T* in_b, T* in_lambda,StopCriteria in_stop_type,T in_target_opt)
 		{
 			output_lambda = in_lambda;
 			server_stream = in_stream;
 			stop_type = in_stop_type;
 			fromcpu<D, T>(server_stream, b, in_b, b_dimension);
 			fromcpu<D, T>(server_stream, lambda[0], in_lambda,b_dimension);
-			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual,in_stop_type);
-		}
-		T init_eta(const T* A, int x_dimension, MatrixMemOrd in_A_ord)
-			//to initiate eta with the max of each col nrm2 and each col nrm2
-			
-		{
-			std::vector<T> col_nrm2_vec(x_dimension, 0);
-			std::vector<T> row_nrm2_vec(b_dimension, 0);
-			if (in_A_ord == MatrixMemOrd::COL)
-			{
-				for (int i = 0; i < x_dimension; i++)
-				{
-					for (int j = 0; j < b_dimension; j++)
-					{
-						T temp = A[i*b_dimension + j] * A[i*b_dimension + j];
-						col_nrm2_vec[i] +=temp;
-						row_nrm2_vec[j] +=temp;
-					}
-				}
-			}
-			else
-			{
-				for (int i = 0; i < b_dimension; i++)
-				{
-					for (int j = 0; j < x_dimension; j++)
-					{
-						T temp = A[i*x_dimension + j] * A[i*x_dimension + j];
-						row_nrm2_vec[i] += temp;
-						col_nrm2_vec[j] += temp;
-					}
-				}
-			}
-			T result = *(std::max(col_nrm2_vec.cbegin(), col_nrm2_vec.cend()));
-			T temp = *(std::max(row_nrm2_vec.cbegin(), row_nrm2_vec.cend()));
-			return result > temp ? std::sqrt(result) : std::sqrt(temp);
+			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual,in_stop_type,in_target_opt);
 		}
 		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho,T in_eps_3)
 		{
@@ -183,12 +149,9 @@ namespace alsm
 				client_A = nullptr;
 				if (in_eta == 0)
 				{
-					inited_eta = clients_number + 1;
+					inited_eta =  1;
 				}
-				else
-				{
-					inited_eta = in_eta;
-				}
+
 				
 				copy<D, T>(in_stream, b_dimension, client_x, current_device_residual);
 				to_server<D, T>(in_stream, clients_residual[current_client_number], current_device_residual,b_dimension, server_stream.device_index);
@@ -204,15 +167,21 @@ namespace alsm
 				to_server<D, T>(in_stream, clients_residual[current_client_number], current_device_residual,b_dimension, server_stream.device_index);
 				if (in_eta == 0)
 				{
-					inited_eta = init_eta(in_A, in_x_dimension, in_A_ord)*(clients_number + 1);
+					nrm2<D, T>(in_stream, b_dimension*in_x_dimension, client_A, &inited_eta);
 				}
-				else
-				{
-					inited_eta = in_eta;
-				}
+
 			}
 
 			in_stream.sync();
+			if (in_eta == 0)
+			{
+				inited_eta *= inited_eta;
+				inited_eta *= clients_number ;
+			}
+			else
+			{
+				inited_eta = in_eta;
+			}
 			device_x[current_client_number] = client_x;
 			clients_dimension[current_client_number] = in_x_dimension;
 			output_x[current_client_number] = in_x;
@@ -221,7 +190,7 @@ namespace alsm
 			int i = current_client_number;
 			alsm_client<D, T> temp_client(&work_finished, &all_client_turns[i], &ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func, in_stream);
 			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], device_lambda[i], device_residual[i], inited_eta,stop_type,client_xG );
-			temp_client.connect_server(server_stream.device_index,&clients_x_diff_nrm2[i], &clients_opt[i], clients_residual[i],&clients_xG_diff_nrm2[i]);
+			temp_client.connect_server(server_stream.device_index, &clients_opt[i], clients_residual[i], &clients_x_old_nrm2[i], &clients_x_diff_nrm2[i], &clients_xG_diff_nrm2[i]);
 			lambda_server.add_client(&clients_opt[i], &clients_beta[i],inited_eta, clients_residual[i], device_lambda[i],&clients_x_old_nrm2[i],&clients_x_diff_nrm2[i], in_stream,  &clients_xG_diff_nrm2[i]);
 			all_clients.push_back(temp_client);
 			current_client_number++;

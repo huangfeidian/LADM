@@ -52,10 +52,9 @@ T normal_matrix(T* A, int m, int n)//A is col first
 template<typename T>
 void generate_random(T* in_vec, int length, T scarcity = 1)
 {
-	std::random_device rd;
 	std::uniform_real_distribution<T> uniform_dist(0, 1);
 	std::uniform_int_distribution<int> spacity_dist(0);
-	std::mt19937 seed(rd());
+	std::mt19937 seed(109);
 	if (scarcity == 1)
 	{
 		for (int i = 0; i < length; i++)
