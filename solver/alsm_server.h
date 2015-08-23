@@ -16,6 +16,7 @@ namespace alsm
 		T beta;
 		T rho, beta_max;
 		T total_opt_value;//sum{client_opt_value}
+		T pre_opt_value;
 		T target_opt_value;
 		T norm_b;//norm{b}
 		T epsilon_1;		//eps_1=norm{total_residual}/norm{b} 
@@ -149,31 +150,41 @@ namespace alsm
 				}
 				break;
 			case StopCriteria::increment:
-			{
-				T total_old_nrm = 0;
-				T total_diff_nrm = 0;
-				for (auto i : clients_xdiff_nrm2)
 				{
-					total_diff_nrm += (*i)*(*i);
+					T total_old_nrm = 0;
+					T total_diff_nrm = 0;
+					for (auto i : clients_xdiff_nrm2)
+					{
+						total_diff_nrm += (*i)*(*i);
+					}
+					for (auto i : clients_xold_nrm2)
+					{
+						total_old_nrm += (*i)*(*i);
+					}
+					total_diff_nrm = sqrt(total_diff_nrm);
+					total_old_nrm = sqrt(total_old_nrm);
+					current_eps3 = total_diff_nrm / total_old_nrm;
+					if (current_eps3< epsilon_3)
+					{
+						work_finished->store(true);
+					}
 				}
-				for (auto i : clients_xold_nrm2)
-				{
-					total_old_nrm += (*i)*(*i);
-				}
-				total_diff_nrm = sqrt(total_diff_nrm);
-				total_old_nrm = sqrt(total_old_nrm);
-				if (total_diff_nrm < epsilon_3*total_old_nrm)
-				{
-					work_finished->store(true);
-				}
-			}
 				break;
 			case StopCriteria::objective_value:
-				current_eps3 = abs(target_opt_value - total_opt_value) / target_opt_value;
+				current_eps3 = abs(pre_opt_value - total_opt_value) / pre_opt_value;
 				if (current_eps3<epsilon_3)
 				{
 					work_finished->store(true);
 				}
+				pre_opt_value = total_opt_value;
+				break;
+			case StopCriteria::ground_object:
+				current_eps3 = abs(total_opt_value - target_opt_value) / target_opt_value;
+				if (current_eps3<epsilon_3)
+				{
+					work_finished->store(true);
+				}
+				break;
 			default:
 				break;
 			}
@@ -223,8 +234,8 @@ namespace alsm
 	public:
 		alsm_server(std::atomic_int* in_free_thread_count, cache_align_storage<std::atomic_bool>* in_client_turns, std::atomic_bool* in_work_finished, int in_client_number,
 			int in_wait_time, int in_max_iter, int in_b_dimesion, stream<D>& in_stream) :
-			server(in_free_thread_count,in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter), 
-			b_dimension(in_b_dimesion), server_stream(in_stream), target_opt_value(0.01)
+			server(in_free_thread_count, in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter),
+			b_dimension(in_b_dimesion), server_stream(in_stream), pre_opt_value(-1)
 		{
 
 
@@ -241,11 +252,11 @@ namespace alsm
 			clients_stream.push_back(client_stream);
 			clients_xG_diff_nrm2.push_back(client_xG_diff);
 		}
-		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,StopCriteria in_stop_type,T in_target_opt)
+		void init_problem( T* in_b,  T* in_lambda_hat, T* in_lambda, T* in_total_residual,StopCriteria in_stop_type,T target_opt)
 		{
 			stop_type = in_stop_type;
-			target_opt_value = in_target_opt;
 			b = in_b;
+			target_opt_value = target_opt;
 			server_lambda_hat = in_lambda_hat;
 			server_lambda = in_lambda;
 			total_residual = in_total_residual;

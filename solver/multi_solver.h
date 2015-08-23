@@ -103,14 +103,14 @@ namespace alsm
 			lambda[0] = total_lambda;
 			lambda[1] = total_lambda + b_dimension;
 		}
-		void init_server(stream<D> in_stream, T* in_b, T* in_lambda,StopCriteria in_stop_type,T in_target_opt)
+		void init_server(stream<D> in_stream, T* in_b, T* in_lambda,StopCriteria in_stop_type,T target_opt=-1)
 		{
 			output_lambda = in_lambda;
 			server_stream = in_stream;
 			stop_type = in_stop_type;
 			fromcpu<D, T>(server_stream, b, in_b, b_dimension);
 			fromcpu<D, T>(server_stream, lambda[0], in_lambda,b_dimension);
-			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual,in_stop_type,in_target_opt);
+			lambda_server.init_problem(b, lambda[1], lambda[0], total_residual,in_stop_type,target_opt);
 		}
 		void init_parameter(T in_eps_1, T in_eps_2, T in_beta, T in_max_beta, T in_rho,T in_eps_3)
 		{
