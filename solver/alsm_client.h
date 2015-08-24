@@ -156,7 +156,7 @@ namespace alsm
 				printf("the stop criteria is ground truth but the xG is null\n");
 				exit(1);
 			}
-			std::cout << "the eta is " << eta << std::endl;
+			//std::cout << "the eta is " << eta << std::endl;
 #if FILE_DEBUG
 			std::stringstream file_name;
 			file_name << "x_debug" << index << ".csv";
