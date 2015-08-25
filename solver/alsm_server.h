@@ -130,7 +130,7 @@ namespace alsm
 					total_xG_diff = sqrt(total_xG_diff);
 					current_eps3 = total_xG_diff;
 					
-					if (total_xG_diff <= epsilon_3)
+					if (total_xG_diff < epsilon_3)
 					{
 						work_finished->store(true);
 					}

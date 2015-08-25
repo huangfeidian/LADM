@@ -10,16 +10,7 @@
 
 //#define NULL 0
 
-enum stoppingCriteria{
-	STOPPING_GROUND_TRUTH = -1,
-	STOPPING_DUALITY_GAP = 1,
-	STOPPING_SPARSE_SUPPORT = 2,
-	STOPPING_OBJECTIVE_VALUE = 3,
-	STOPPING_SUBGRADIENT = 4,
-	STOPPING_INCREMENTS = 5,
-	STOPPING_GROUND_OBJECT = 6,
-	 STOPPING_DEFAULT        = STOPPING_INCREMENTS
-};
+
 
 class L1Solver_e1x1
 {
@@ -52,17 +43,19 @@ public:
 	//        The input and output arrays can be whatever type is convenient for the rest of the code;
 	//        they will likely be copied and typeconverted internally.
 	// 
-	void solve( float *b, float *x, float *e, float tol=1E-6, float tol_int=1E-6, int maxIter=50, int maxIter_alt=50, int stoppingcriterion=STOPPING_INCREMENTS, const float *xG=nullptr); 
+	void solve( float *b, float *x, float *e, float tol=1E-6, float tol_int=1E-6, int maxIter=50, int maxIter_alt=50, int stoppingcriterion=5, const float *xG=nullptr); 
 
 protected:
 
 	float tau, tauInv;
 	float *d_b, *d_xe, *d_old_xe, *d_A, *d_temp, *d_temp1, *d_temp2, *d_x, *d_e, *d_z, *d_G, *d_Gx, *d_Gz, *d_s, *d_Gx_old;
 	float *d_lambda, *d_lambda_scaled, *d_x_old_apg, *d_xG;
+	float * dual_temp;
 	bool  *d_nz_x, *d_nz_x_prev;
 	int block_size, grid_size;
-
-	float *G;
+	float nrm_b;
+	float diff_nrm_b;
+	
 
 	float eps;
 

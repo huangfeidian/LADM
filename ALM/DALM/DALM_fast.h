@@ -19,7 +19,7 @@ public:
 	float beta, betaInv, nxo, dx, total, dg, dAg, alpha;
 	bool verbose ;
 	enum stoppingCriteria stop;
-
+	float* diff_b;
 	int num_devices, device, max_threads;
 	DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda);
 	void allocate_memory();
