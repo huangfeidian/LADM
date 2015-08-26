@@ -219,7 +219,7 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 		stop = STOPPING_GROUND_OBJECT;
 		break;
 	}
-	if (stoppingCriterion == STOPPING_GROUND_TRUTH)
+	if (stop == STOPPING_GROUND_TRUTH || stop == STOPPING_GROUND_OBJECT)
 	{
 		cublasSetVector(n+m, sizeof(float), xG, 1, d_xG, 1);
 	}

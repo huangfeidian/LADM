@@ -10,7 +10,7 @@ using namespace alsm;
 template <typename T>
 #define EPS1 0.01
 #define EPS2 0.005
-#define EPS3 0.001
+#define EPS3 0.005
 void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_opt,StopCriteria how_stop)
 {
 
@@ -31,7 +31,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	T current_opt;
 	T opt_error;
 	nrm2<DeviceType::CPU, T>(result_stream, m, b, &norm_b);
-#if 0
+#if 1
 	int PALM_DALM_stop;
 	switch (how_stop)
 	{
@@ -230,7 +230,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	L1Solver_e1x1 PLAM_solver(m, n);
 	begin = std::chrono::high_resolution_clock::now();
 	PLAM_solver.set_A(A);
-	PLAM_solver.solve(b, output_x, output_e, EPS3, 0.01, 50, 100, 3, output_xG);
+	PLAM_solver.solve(b, output_x, output_e, EPS3, 0.01, 50, 100, PALM_DALM_stop, output_xG);
 	end = std::chrono::high_resolution_clock::now();
 	elapsed = end - begin;
 	T PLAM_eps3 = abs(PLAM_solver.f - PLAM_solver.prev_f) / PLAM_solver.prev_f;
@@ -276,7 +276,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 }
 int main()
 {
-	int begin_m = 320 ;
+	int begin_m = 320;
 	int begin_n = 1024 ;
 	float* A;
 	float* b;
@@ -286,7 +286,7 @@ int main()
 	float opt_G;
 	ofstream output("speedtest.csv");
 	output << "type,block_size,m,n,time,residual_eps,opt_eps,opt" << endl;
-	for (int i = 5; i < 12; i++)
+	for (int i = 1; i < 12; i++)
 	{
 		int m, n;
 		m = begin_m*i;
@@ -318,7 +318,7 @@ int main()
 				}
 			}
 		}
-		test<float>(output, A, b,xG, m, n,opt_G,StopCriteria::dual_tol);
+		test<float>(output, A, b,xG, m, n,opt_G,StopCriteria::ground_object);
 		delete [] A;
 		delete [] b;
 		delete [] xG;
