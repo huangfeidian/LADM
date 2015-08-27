@@ -41,7 +41,7 @@ namespace alsm
 		StopCriteria stop_type;
 		std::vector<T> clients_opt;
 		std::vector<T> clients_x_diff_nrm2;
-		std::vector<T> clients_x_old_nrm2;
+		std::vector<T> clients_x_nrm2;
 		std::vector<T> clients_xG_diff_nrm2;
 		T total_residual_nrm2;
 		T server_beta;
@@ -71,7 +71,7 @@ namespace alsm
 			clients_residual = std::vector<T*>(clients_number, nullptr);
 			device_residual = std::vector<T*>(clients_number, nullptr);
 			clients_x_diff_nrm2 = std::vector<T>(clients_number, 0);
-			clients_x_old_nrm2 = std::vector<T>(clients_number, 0);
+			clients_x_nrm2 = std::vector<T>(clients_number, 0);
 			clients_xG_diff_nrm2 = std::vector<T>(clients_number, 0);
 			clients_A = std::vector<T*>(clients_number, nullptr);
 			client_streams = std::vector<stream<D>>(clients_number, stream<D>());
@@ -190,8 +190,8 @@ namespace alsm
 			int i = current_client_number;
 			alsm_client<D, T> temp_client(&work_finished, &all_client_turns[i], &ready_thread_count, wait_time.count(), i, b_dimension, in_x_dimension, in_func, in_stream);
 			temp_client.init_problem(is_Identity, in_A_ord, client_A, client_x, client_x + 2 * in_x_dimension, &clients_beta[i], device_lambda[i], device_residual[i], inited_eta,stop_type,client_xG );
-			temp_client.connect_server(server_stream.device_index, &clients_opt[i], clients_residual[i], &clients_x_old_nrm2[i], &clients_x_diff_nrm2[i], &clients_xG_diff_nrm2[i]);
-			lambda_server.add_client(&clients_opt[i], &clients_beta[i],inited_eta, clients_residual[i], device_lambda[i],&clients_x_old_nrm2[i],&clients_x_diff_nrm2[i], in_stream,  &clients_xG_diff_nrm2[i]);
+			temp_client.connect_server(server_stream.device_index, &clients_opt[i], clients_residual[i], &clients_x_nrm2[i], &clients_x_diff_nrm2[i], &clients_xG_diff_nrm2[i]);
+			lambda_server.add_client(&clients_opt[i], &clients_beta[i],inited_eta, clients_residual[i], device_lambda[i],&clients_x_nrm2[i],&clients_x_diff_nrm2[i], in_stream,  &clients_xG_diff_nrm2[i]);
 			all_clients.push_back(temp_client);
 			current_client_number++;
 		}
@@ -205,6 +205,10 @@ namespace alsm
 			axpy<D, T>(server_stream, b_dimension, -1, b, total_residual);
 			axpy<D, T>(server_stream, b_dimension, server_beta, total_residual, lambda[1]);//lambda_hat=-beta*b;
 			server_stream.sync();
+		}
+		void set_log_file(FILE* input_file)
+		{
+			lambda_server.set_log_file(input_file);
 		}
 		virtual void solve() = 0;
 	};

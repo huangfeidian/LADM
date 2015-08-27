@@ -11,7 +11,7 @@
 //#define NULL 0
 
 
-
+#include <stdio.h>
 class L1Solver_e1x1
 {
 public:
@@ -23,6 +23,7 @@ public:
 	int nIter;
 	int nIter_alt_total;
 	float f, prev_f;
+	FILE* log_file;
 	//	Clears allocated memory on both CPU side and GPU side.
 	void free_memory();
 	//~L1Solver_e1x1();
@@ -30,7 +31,7 @@ public:
 	// Upload the A matrix to GPU memory.
 	// A must have close packed column-major storage.
 	void set_A(float* A);
-
+	void set_logFile(FILE* input_file);
 	//	Solves the L1-minimization problem.
 	//
 	//  Inputs:
@@ -43,7 +44,7 @@ public:
 	//        The input and output arrays can be whatever type is convenient for the rest of the code;
 	//        they will likely be copied and typeconverted internally.
 	// 
-	void solve( float *b, float *x, float *e, float tol=1E-6, float tol_int=1E-6, int maxIter=50, int maxIter_alt=50, int stoppingcriterion=5, const float *xG=nullptr); 
+	void solve( float *b, float *x, float *e, float tol=1E-6, float tol_int=1E-6, int maxIter=50, int maxIter_alt=50, int stoppingcriterion=5, const float *xG=nullptr,float tol2=0.01); 
 
 protected:
 

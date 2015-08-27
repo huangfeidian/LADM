@@ -5,7 +5,7 @@
 #include "../util/alloca.h"
 #include <vector>
 #include <sstream>
-#define FILE_DEBUG 1
+#define FILE_DEBUG 0
 using std::vector;
 namespace alsm
 {
@@ -25,6 +25,8 @@ namespace alsm
 		T current_eps1, current_eps2,current_eps3;
 		int b_dimension;
 		T total_residual_norm;
+		T total_xdiff_nrm ;
+		T total_x_nrm ;
 		stream<D> server_stream;
 	public:
 		T *server_lambda;
@@ -41,11 +43,12 @@ namespace alsm
 		vector<T*> clients_xG_diff_nrm2;
 		vector<T*> clients_opt_value;
 		vector<T*> clients_xdiff_nrm2;
-		vector<T*> clients_xold_nrm2;
+		vector<T*> clients_x_nrm2;
 	public:
 		//device dependent memory
 		vector<T*> devices_lambda;
 		vector <stream<D>> clients_stream;
+		FILE* log_file;
 #if FILE_DEBUG
 		FILE* scalar_info;
 		//std::vector<FILE*> residual_info;
@@ -143,27 +146,48 @@ namespace alsm
 					work_finished->store(true);
 				}
 				break;
-			case StopCriteria::dual_tol:
+			case StopCriteria::ladm_default:
 				if (current_eps1 < epsilon_1&&current_eps2 < epsilon_2)
 				{
 					work_finished->store(true);
 				}
 				break;
-			case StopCriteria::increment:
+			case StopCriteria::kkt_dual_tol:
 				{
-					T total_old_nrm = 0;
-					T total_diff_nrm = 0;
+					total_x_nrm = 0;
+					total_xdiff_nrm = 0;
 					for (auto i : clients_xdiff_nrm2)
 					{
-						total_diff_nrm += (*i)*(*i);
+						total_xdiff_nrm += (*i)*(*i);
 					}
-					for (auto i : clients_xold_nrm2)
+					for (auto i : clients_x_nrm2)
 					{
-						total_old_nrm += (*i)*(*i);
+						total_x_nrm += (*i)*(*i);
 					}
-					total_diff_nrm = sqrt(total_diff_nrm);
-					total_old_nrm = sqrt(total_old_nrm);
-					current_eps3 = total_diff_nrm / total_old_nrm;
+					total_xdiff_nrm = sqrt(total_xdiff_nrm);
+					total_x_nrm = sqrt(total_x_nrm);
+					current_eps3 = total_xdiff_nrm ;
+					if (current_eps1 < epsilon_1&&current_eps3 < epsilon_3)
+					{
+						work_finished->store(true);
+					}
+				}
+				break;
+			case StopCriteria::increment:
+				{
+					total_x_nrm = 0;
+					total_xdiff_nrm = 0;
+					for (auto i : clients_xdiff_nrm2)
+					{
+						total_xdiff_nrm += (*i)*(*i);
+					}
+					for (auto i : clients_x_nrm2)
+					{
+						total_x_nrm += (*i)*(*i);
+					}
+					total_xdiff_nrm = sqrt(total_xdiff_nrm);
+					total_x_nrm = sqrt(total_x_nrm);
+					current_eps3 = total_xdiff_nrm / total_x_nrm;
 					if (current_eps3< epsilon_3)
 					{
 						work_finished->store(true);
@@ -185,6 +209,31 @@ namespace alsm
 					work_finished->store(true);
 				}
 				break;
+			case StopCriteria::file_log:
+				{
+					
+					total_xdiff_nrm = 0;
+					for (auto i : clients_xdiff_nrm2)
+					{
+						total_xdiff_nrm += (*i)*(*i);
+					}
+					
+					total_xdiff_nrm = sqrt(total_xdiff_nrm);
+					
+					
+					fprintf(log_file, "%lf,%lf,%lf,%lf,", static_cast<double>(current_iter), static_cast<double>(total_xdiff_nrm),
+						static_cast<double>(total_xdiff_nrm / total_x_nrm),static_cast<double>(current_eps2));
+					fprintf(log_file, "%lf,", static_cast<double>(beta));
+					current_eps3 = abs(pre_opt_value - total_opt_value) / pre_opt_value;
+					fprintf(log_file, "%lf,%lf,%lf,%lf\n", static_cast<double>(total_residual_norm), static_cast<double>(current_eps1), 
+						static_cast<double>(total_opt_value), static_cast<double>(current_eps3));
+					for (auto i : clients_x_nrm2)
+					{
+						total_x_nrm += (*i)*(*i);
+					}
+					total_x_nrm = sqrt(total_x_nrm);
+					pre_opt_value = total_opt_value;
+				}
 			default:
 				break;
 			}
@@ -235,7 +284,7 @@ namespace alsm
 		alsm_server(std::atomic_int* in_free_thread_count, cache_align_storage<std::atomic_bool>* in_client_turns, std::atomic_bool* in_work_finished, int in_client_number,
 			int in_wait_time, int in_max_iter, int in_b_dimesion, stream<D>& in_stream) :
 			server(in_free_thread_count, in_client_turns, in_work_finished, in_client_number, in_wait_time, in_max_iter),
-			b_dimension(in_b_dimesion), server_stream(in_stream), pre_opt_value(-1)
+			b_dimension(in_b_dimesion), server_stream(in_stream), pre_opt_value(1), total_x_nrm(1)
 		{
 
 
@@ -245,7 +294,7 @@ namespace alsm
 			clients_opt_value.push_back(client_opt_value);
 			clients_beta.push_back(client_beta);
 			clients_sqrt_eta.push_back(std::sqrt(client_eta));
-			clients_xold_nrm2.push_back(client_xold_nrm2);
+			clients_x_nrm2.push_back(client_xold_nrm2);
 			clients_xdiff_nrm2.push_back(client_xdiff_nrm2);
 			clients_residual.push_back(client_residual);
 			devices_lambda.push_back(client_lambda);
@@ -302,6 +351,11 @@ namespace alsm
 
 			//}
 #endif
+		}
+		void set_log_file(FILE* input_file)
+		{
+			log_file = input_file;
+			fprintf(log_file, "nIter,norm(diff(x)),eps(diff(x)),eps_eta_diff,beta,residual,eps(residual),f,eps(diff(f))\n");
 		}
 		~alsm_server()
 		{

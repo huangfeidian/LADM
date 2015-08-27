@@ -52,6 +52,8 @@ enum stoppingCriteria
 	STOPPING_SUBGRADIENT = 4,
 	STOPPING_INCREMENTS = 5,
 	STOPPING_GROUND_OBJECT = 6,
+	STOPPING_KKT_DUAL_TOL=7,
+	STOPPING_LOG=8,//no stop just to log statistic informations
 	STOPPING_DEFAULT = STOPPING_INCREMENTS
 };
 L1Solver_e1x1::L1Solver_e1x1(int new_m, int new_n)
@@ -157,7 +159,12 @@ void L1Solver_e1x1::free_memory()
 
 	cublasShutdown();
 }
-
+void L1Solver_e1x1::set_logFile(FILE* input_file)
+{
+	log_file = input_file;
+	// nIter, nIter_alt_total,norm(diff(x)),norm(diff(x))/norm(prev_x),residual,residual/b,f,eps(diff(f))
+	fprintf(log_file, "nIter,n_iter_alt,norm(diff(x)),eps(diff(x)),residual,eps(residual),f,eps(diff(f))\n");
+}
 void L1Solver_e1x1::set_A(float *A)
 {
 
@@ -177,7 +184,7 @@ void L1Solver_e1x1::set_A(float *A)
 	printf("tau is %f\n", tau);
 	//tau = tau;
 }
-void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int, int maxIter, int maxIter_alt, int stoppingCriterion, const float *xG)
+void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int, int maxIter, int maxIter_alt, int stoppingCriterion, const float *xG,float tol2)
 {
 	float dx, nxo, neo, de;
 	int nIter_apg;
@@ -218,6 +225,12 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 	case 6:
 		stop = STOPPING_GROUND_OBJECT;
 		break;
+	case 7:
+		stop = STOPPING_KKT_DUAL_TOL;
+		break;
+	case 8:
+		stop = STOPPING_LOG;
+			break;
 	}
 	if (stop == STOPPING_GROUND_TRUTH || stop == STOPPING_GROUND_OBJECT)
 	{
@@ -227,7 +240,11 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 	{
 		prev_f = cublasSasum(m+ n, d_xG, 1);
 	}
-
+	if (stop == STOPPING_LOG&&log_file==nullptr)
+	{
+		printf(" log file needed \n");
+		exit(1);
+	}
 	cublasSetVector(m, sizeof(float), b, 1, d_b, 1);
 	nrm_b = cublasSnrm2(m, d_b, 1);
 	// tol = 5e-2;
@@ -440,7 +457,7 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 			//          converged_main =  ~(criterionObjective > tol);
 			prev_f = f;
 			f = cublasSasum(n + m, d_xe, 1);
-			if (fabs(f - prev_f) <= tol * prev_f)
+			if (fabs(f - prev_f) <= tol * fabs(prev_f))
 			{
 				converged_main = true;
 			}
@@ -469,18 +486,43 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 			//            if norm([x_old_main ; e_old_main] - [x ; e]) < tol*norm([x_old_main ; e_old_main])
 			//                converged_main = 1 ;
 			//            end
+			//cublasScopy(n + m, d_old_xe, 1, d_temp1, 1);
+			//nxo = cublasSnrm2(n, d_old_xe, 1);
+			//neo = cublasSnrm2(m, d_old_xe + n, 1);
+			//cublasSaxpy(n + m, -1, d_xe, 1, d_temp1, 1);
+			//dx = cublasSnrm2(n, d_temp1, 1);
+			//de = cublasSnrm2(m, d_temp1 + n, 1);
+			//if (dx < tol*nxo && de < tol * neo)
+			//	converged_main = true;
 			cublasScopy(n + m, d_old_xe, 1, d_temp1, 1);
-			nxo = cublasSnrm2(n, d_old_xe, 1);
-			neo = cublasSnrm2(m, d_old_xe + n, 1);
+			nxo = cublasSnrm2(n+m, d_old_xe, 1);
 			cublasSaxpy(n + m, -1, d_xe, 1, d_temp1, 1);
-			dx = cublasSnrm2(n, d_temp1, 1);
-			de = cublasSnrm2(m, d_temp1 + n, 1);
-			if (dx < tol*nxo && de < tol * neo)
+			dx = cublasSnrm2(n+m, d_temp1, 1);
+			if (dx < tol*nxo)
+			{
 				converged_main = true;
+			}
+			break;
+		case STOPPING_KKT_DUAL_TOL:
+			//temp=-Ax
+			cublasScopy(m, d_temp, 1, dual_temp, 1);
+			cublasSaxpy(m, -1, d_e, 1, dual_temp, 1);
+			//temp=-Ax-e
+			cublasSaxpy(m, 1, d_b, 1, dual_temp, 1);
+			//temp=b-Ax-e
+			diff_nrm_b = cublasSnrm2(m, dual_temp, 1);
+			cublasScopy(n + m, d_old_xe, 1, d_temp1, 1);
+			nxo = cublasSnrm2(n + m, d_old_xe, 1);
+			cublasSaxpy(n + m, -1, d_xe, 1, d_temp1, 1);
+			dx = cublasSnrm2(n + m, d_temp1, 1);
+			if (diff_nrm_b / nrm_b < tol&&dx<tol2)
+			{
+				converged_main = true;
+			}
 			break;
 		case STOPPING_GROUND_OBJECT:
 			f = cublasSasum(n + m, d_xe, 1);
-			if (fabs(f - prev_f) <= tol * prev_f)
+			if (fabs(f - prev_f) <= tol *fabs( prev_f))
 			{
 				converged_main = true;
 			}
@@ -490,6 +532,23 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 				//printf("f: %20.20f\n", f);
 				//printf("abs(f-prev_f): %20.20f\n", fabs(f-prev_f));
 			}
+			break;
+		case STOPPING_LOG:
+			// nIter, nIter_alt_total,norm(diff(x)),norm(diff(x))/norm(prev_x),residual,residual/b,f
+			cublasScopy(n + m, d_old_xe, 1, d_temp1, 1);
+			nxo = cublasSnrm2(n + m, d_old_xe, 1);
+			cublasSaxpy(n + m, -1, d_xe, 1, d_temp1, 1);
+			dx = cublasSnrm2(n + m, d_temp1, 1);
+			cublasScopy(m, d_temp, 1, dual_temp, 1);
+			cublasSaxpy(m, -1, d_e, 1, dual_temp, 1);
+			//temp=-Ax-e
+			cublasSaxpy(m, 1, d_b, 1, dual_temp, 1);
+			//temp=b-Ax-e
+			diff_nrm_b = cublasSnrm2(m, dual_temp, 1);
+			prev_f = f;
+			f = cublasSasum(n + m, d_xe, 1);
+			fprintf(log_file, "%lf,%lf,%lf,%lf,", static_cast<double>(nIter), static_cast<double>(nIter_alt_total), static_cast<double>(dx), static_cast<double>(dx / nxo));
+			fprintf(log_file, "%lf,%lf,%lf,%lf\n", static_cast<double>(diff_nrm_b), static_cast<double>(diff_nrm_b / nrm_b), static_cast<double>(f), static_cast<double>(fabs((prev_f - f) / f)));
 			break;
 		default:
 			//printf("Undefined stopping criterion. Default");
@@ -508,6 +567,7 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 		//     end
 		if ((!converged_main) && (nIter >= maxIter))
 		{
+			printf("max iteration %d exceeded\n", maxIter);
 			converged_main = true;
 		}
 	}

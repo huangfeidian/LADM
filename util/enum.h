@@ -61,8 +61,10 @@ namespace alsm
 		ground_object,//(object_value(x)-object_value(x_target))/object_value(x_target)<=tol
 		duality_gap,//norm(b-sum(Ax))/norm(b)<=tol
 		objective_value,//(object_value(x)-object_value(x_prev))/object_value(x_prev)<=tol
-		dual_tol,//duality_gap and beta*max(eta*norm(x-x_prev))/norm(b)<=tol_2
+		kkt_dual_tol,//duality gap and norm(x_prev-x)<tol*(x_prev)
 		increment,//norm(x_prev-x)<=tol*norm(x_prev)
+		file_log,//just to log everything during iteration
+		ladm_default//duality_gap and beta*max(eta*norm(x-x_prev))/norm(b)<=tol_2
 
 
 	};

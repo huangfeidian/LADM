@@ -26,17 +26,17 @@ template<typename T>
 T normal_matrix(T* A, int m, int n)//A is col first
 {
 	T normA = 0;
-	for (int i = 0; i < m; i++)//the A is col first stored
+	for (int i = 0; i < n; i++)//the A is col first stored
 	{
 		normA = 0;
-		for (int j = 0; j < n; j++)//normalize every row's l2 norm to 1
+		for (int j = 0; j < m; j++)//normalize every row's l2 norm to 1
 		{
-			normA += A[j*m + i] * A[j*m + i];
+			normA += A[i*m + j] * A[i*m + j];
 		}
 		normA = sqrt(normA);
-		for (int j = 0; j < n; j++)
+		for (int j = 0; j < m; j++)
 		{
-			A[j*m + i] = (T) (A[j*m + i] / normA);
+			A[i*m + j] = (T) (A[i*m + j] / normA);
 		}
 	}
 	normA = 0;
@@ -52,7 +52,7 @@ T normal_matrix(T* A, int m, int n)//A is col first
 template<typename T>
 void generate_random(T* in_vec, int length, T scarcity = 1)
 {
-	std::uniform_real_distribution<T> uniform_dist(0, 1);
+	std::uniform_real_distribution<T> uniform_dist(-10, 10);
 	std::uniform_int_distribution<int> spacity_dist(0);
 	std::mt19937 seed(109);
 	if (scarcity == 1)

@@ -8,8 +8,8 @@
 using namespace std;
 using namespace alsm;
 template <typename T>
-#define EPS1 0.01
-#define EPS2 0.005
+#define EPS1 0.001
+#define EPS2 0.01
 #define EPS3 0.005
 void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_opt,StopCriteria how_stop)
 {
@@ -49,6 +49,9 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		break;
 	case StopCriteria::objective_value:
 		PALM_DALM_stop = 3;
+		break;
+	case StopCriteria::kkt_dual_tol:
+		PALM_DALM_stop = 7;
 		break;
 	default:
 		cout << "unsupported stop criteria" << endl;
@@ -168,7 +171,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 				MatrixMemOrd::COL, output_x + (n / block_size)*i,0, output_xG + (n / block_size)*i);
 		}
 		multi_seq_gpu_solver.add_client(multi_gpu_streams[block_size], m, FunctionObj<T>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e,0,output_xG+n);
-		multi_seq_gpu_solver.init_parameter(EPS1, EPS2,m*0.002, 1000, 1.1,EPS3);
+		multi_seq_gpu_solver.init_parameter(EPS1, EPS2,m*0.004, 1000, 1.1,EPS3);
 		begin = std::chrono::high_resolution_clock::now();
 		multi_seq_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();
@@ -185,7 +188,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		cout << "MULTI GPU SEQ" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
 			"," << opt_error << "," << current_opt << endl;
 		alsm_free_all();
-
+#if 0
 		memset(output, 0, sizeof(T)*(m + n));
 		memset(lambda,0, sizeof(T)*m);
 		multi_para<DeviceType::GPU, T> multi_para_gpu_solver(multi_gpu_streams[block_size + 1], block_size + 1, m, 5000, 10);
@@ -197,7 +200,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 				MatrixMemOrd::COL, output_x + (n / block_size)*i, 0, output_xG + (n / block_size)*i);
 		}
 		multi_para_gpu_solver.add_client(multi_gpu_streams[block_size], m, FunctionObj<T>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e,0,output_xG+n);
-		multi_para_gpu_solver.init_parameter(EPS1, EPS2, m*0.002, 1000, 1.1,EPS3);
+		multi_para_gpu_solver.init_parameter(EPS1, EPS2, m*0.004, 1000, 1.1,EPS3);
 		begin = std::chrono::high_resolution_clock::now();
 		multi_para_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();
@@ -214,6 +217,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		cout << "MULTI GPU para" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
 			"," << opt_error << "," << current_opt << endl;
 		alsm_free_all();
+#endif
 		for (auto i : multi_gpu_streams)
 		{
 			i.destory();
@@ -230,7 +234,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	L1Solver_e1x1 PLAM_solver(m, n);
 	begin = std::chrono::high_resolution_clock::now();
 	PLAM_solver.set_A(A);
-	PLAM_solver.solve(b, output_x, output_e, EPS3, 0.01, 50, 100, PALM_DALM_stop, output_xG);
+	PLAM_solver.solve(b, output_x, output_e, EPS1, 0.00001, 1000, 50, PALM_DALM_stop, output_xG,EPS3);
 	end = std::chrono::high_resolution_clock::now();
 	elapsed = end - begin;
 	T PLAM_eps3 = abs(PLAM_solver.f - PLAM_solver.prev_f) / PLAM_solver.prev_f;
@@ -251,7 +255,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 #if 0
 	memset(output, 0, sizeof(T)*(m + n));
 	memset(lambda, 0, sizeof(T)*m);
-	DALM_solver dalm_solver(m, n+m,PALM_DALM_stop,EPS3,0.2);
+	DALM_solver dalm_solver(m, n+m,PALM_DALM_stop,EPS3,0.01);
 	dalm_solver.allocate_memory();
 	begin = std::chrono::high_resolution_clock::now();
 	
@@ -318,7 +322,7 @@ int main()
 				}
 			}
 		}
-		test<float>(output, A, b,xG, m, n,opt_G,StopCriteria::ground_object);
+		test<float>(output, A, b,xG, m, n,opt_G,StopCriteria::kkt_dual_tol);
 		delete [] A;
 		delete [] b;
 		delete [] xG;

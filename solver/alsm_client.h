@@ -28,7 +28,7 @@ namespace alsm
 		T *server_x_diff_nrm2;
 		T* server_diff_xG_nrm2;
 		T *server_opt, *server_residual;
-		T* server_x_old_nrm2;
+		T* server_x_nrm2;
 		stream<D> client_stream;
 		const FunctionObj<T> func;
 		int server_device_index;
@@ -75,10 +75,9 @@ namespace alsm
 
 			BatchProxEval<D, T>(client_stream, func, x_dimension, sigma/2, v, x_2);//x_2=prox{func+sigma/2*{x-v}^2}
 			//output(x_2);
-			if (stop_type == StopCriteria::increment)
-			{
-				nrm2<D, T>(client_stream, x_dimension, x_1, server_x_old_nrm2);
-			}
+
+			nrm2<D, T>(client_stream, x_dimension, x_2, server_x_nrm2);
+
 			axpy<D, T>(client_stream, x_dimension, -1, x_2, x_1);//x_1=x_1-x_2;
 			//output(x_1);
 			nrm2<D, T>(client_stream, x_dimension, x_1, server_x_diff_nrm2);
@@ -136,6 +135,7 @@ namespace alsm
 		{
 
 		}
+
 		void init_problem(bool is_identity, MatrixMemOrd in_A_ord, T* in_A, T* in_x, T* in_v, T* in_client_beta, T* in_client_lambda, T* in_client_residual, T in_eta,StopCriteria in_stop_type,T* in_xG=nullptr)
 		{
 			IdentityMatrix = is_identity;
@@ -151,7 +151,7 @@ namespace alsm
 			residual = in_client_residual;
 			eta = in_eta;
 			stop_type = in_stop_type;
-			if (stop_type == StopCriteria::ground_truth&& in_xG == nullptr)
+			if ((stop_type == StopCriteria::ground_truth||stop_type==StopCriteria::ground_object)&& in_xG == nullptr)
 			{
 				printf("the stop criteria is ground truth but the xG is null\n");
 				exit(1);
@@ -172,7 +172,7 @@ namespace alsm
 			server_device_index = in_server_device_index;
 			server_x_diff_nrm2 = in_x_diff_nrm;
 			server_opt = in_opt;
-			server_x_old_nrm2 = in_x_old_nrm;
+			server_x_nrm2 = in_x_old_nrm;
 			server_residual = in_residual;
 			server_diff_xG_nrm2 = in_xG_diff_norm;
 		}
