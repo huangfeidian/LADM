@@ -20,7 +20,9 @@ int main()
 	n = begin_n * 5;
 	A = new float[m*(n + m)];
 	b = new float[m];
-
+	vector<float> all_beta = { 0.1f, 0.2f, 0.4f, 0.8f, 1.6f, 3.2f, 6.4f, 12.8f };
+	vector<float> all_rho = { 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.7f, 1.8f, 2.0f };
+	vector<float> all_epsilon = { 1.0f, 0.4f, 0.2f, 0.1f, 0.05f, 0.02f, 0.01f };
 	xG = new float[m + n];
 	x = xG;
 	e = xG + n;
@@ -53,27 +55,40 @@ int main()
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto end = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float, std::milli> elapsed;
-	FILE* ladm_log = fopen("LADM_log.csv", "w");
-	memset(output, 0, sizeof(float)*(m + n));
-	memset(lambda, 0, sizeof(float)*m);
-	memset(result_b, 0, sizeof(float)*m);
-	std::vector<stream<DeviceType::GPU>> multi_gpu_streams = stream<DeviceType::GPU>::create_streams(1 + 2, false);
-	multi_seq<DeviceType::GPU,float> multi_seq_gpu_solver(multi_gpu_streams[1+ 1], 1+ 1, m, 5000, 10);
-	multi_seq_gpu_solver.init_memory();
-	multi_seq_gpu_solver.init_server(multi_gpu_streams[1+ 1], b, lambda, StopCriteria::file_log, opt_G);
-	for (int i = 0; i <1; i++)
+	for (int i = 0; i < all_epsilon.size(); i++)
 	{
-		multi_seq_gpu_solver.add_client(multi_gpu_streams[i], n / 1, FunctionObj<float>(UnaryFunc::Abs), A + m*(n / 1)*i, false,
-			MatrixMemOrd::COL, output_x + (n / 1)*i, 0, xG + (n / 1)*i);
+		string file_name = "LADM_epsilon_";
+		file_name += std::to_string(i) + ".csv";
+		FILE* ladm_log = fopen(file_name.c_str(), "w");
+		memset(output, 0, sizeof(float)*(m + n));
+		memset(lambda, 0, sizeof(float)*m);
+		memset(result_b, 0, sizeof(float)*m);
+		std::vector<stream<DeviceType::GPU>> multi_gpu_streams = stream<DeviceType::GPU>::create_streams(1 + 2, false);
+		multi_seq<DeviceType::GPU, float> multi_seq_gpu_solver1(multi_gpu_streams[1 + 1], 1 + 1, m, 5000, 10);
+		multi_seq_gpu_solver1.init_memory();
+		multi_seq_gpu_solver1.init_server(multi_gpu_streams[1 + 1], b, lambda, StopCriteria::file_log, opt_G);
+		for (int i = 0; i <1; i++)
+		{
+			multi_seq_gpu_solver1.add_client(multi_gpu_streams[i], n / 1, FunctionObj<float>(UnaryFunc::Abs), A + m*(n / 1)*i, false,
+				MatrixMemOrd::COL, output_x + (n / 1)*i, 0, xG + (n / 1)*i);
+		}
+		multi_seq_gpu_solver1.set_log_file(ladm_log);
+		multi_seq_gpu_solver1.add_client(multi_gpu_streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e, 0, xG + n);
+		multi_seq_gpu_solver1.init_parameter(EPS1, all_epsilon[i], 1, 1000, 1.1, EPS3);
+		begin = std::chrono::high_resolution_clock::now();
+		multi_seq_gpu_solver1.solve();
+		end = std::chrono::high_resolution_clock::now();
+		elapsed = end - begin;
+		alsm_free_all();
+		for (auto j : multi_gpu_streams)
+		{
+			j.destory();
+		}
 	}
-	multi_seq_gpu_solver.set_log_file(ladm_log);
-	multi_seq_gpu_solver.add_client(multi_gpu_streams[1], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e, 0, xG+ n);
-	multi_seq_gpu_solver.init_parameter(EPS1, EPS2, 10, 1000, 1.1, EPS3);
-	begin = std::chrono::high_resolution_clock::now();
-	multi_seq_gpu_solver.solve();
-	end = std::chrono::high_resolution_clock::now();
-	elapsed = end - begin;
-	alsm_free_all();
+	
+
+	
+
 	delete [] output;
 	delete [] result_b;
 	delete [] lambda;

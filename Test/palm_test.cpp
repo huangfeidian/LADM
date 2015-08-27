@@ -1,5 +1,6 @@
 #include "../ALM/PALM/PALM_cuda.h"
 #include "data_generate.h"
+#include <string>
 using namespace std;
 int main()
 {
@@ -13,8 +14,8 @@ int main()
 	float opt_G;
 
 	int m, n;
-	m = begin_m*10;
-	n = begin_n*10;
+	m = begin_m*5;
+	n = begin_n*5;
 	A = new float[m*(n + m)];
 	b = new float[m];
 
@@ -45,13 +46,19 @@ int main()
 	float* output_x = output;
 	float* output_e = output + n;
 	float* result_b = new float[m];
-
+	vector<float> all_tol_int = { 0.00008f, 0.00004f, 0.00002f, 0.00001f, 0.000008f };
 	float* lambda = new float[m];
-	FILE* palm_log = fopen("palm_log.csv", "w");
-	L1Solver_e1x1 PLAM_solver(m, n);
-	PLAM_solver.set_A(A);
-	PLAM_solver.set_logFile(palm_log);
-	PLAM_solver.solve(b, output_x, output_e, 0.001, 0.00001, 5000, 50, 8, xG, 0.001);
+	for (int i = 0; i < all_tol_int.size(); i++)
+	{
+		string file_name = "palm_tol";
+		file_name += to_string(i) + ".csv";
+		FILE* palm_log = fopen(file_name.c_str(), "w");
+		L1Solver_e1x1 PLAM_solver(m, n);
+		PLAM_solver.set_A(A);
+		PLAM_solver.set_logFile(palm_log);
+		PLAM_solver.solve(b, output_x, output_e, 0.001, all_tol_int[i], 5000, 50, 8, xG, 0.001);
+	}
+	
 	delete [] output;
 	delete [] result_b;
 	delete [] lambda;
