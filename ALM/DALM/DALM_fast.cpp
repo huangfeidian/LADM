@@ -128,10 +128,12 @@ enum stoppingCriteria
 	STOPPING_SUBGRADIENT = 4,
 	STOPPING_INCREMENTS = 5,
 	STOPPING_GROUND_OBJECT=6,
+	STOPPING_KKT_DUAL_TOL = 7,
+	STOPPING_LOG = 8,//no stop just to log statistic informations
 	STOPPING_DEFAULT = STOPPING_INCREMENTS
 };
-DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda)
-:m(in_m), n(in_n), stoppingCriterion(in_stop), tol(in_tol), lambda(in_lambda)
+DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda,float in_tol2)
+	:m(in_m), n(in_n), stoppingCriterion(in_stop), tol(in_tol), lambda(in_lambda), tol2(in_tol2)
 {
 	
 	ldA = m;
@@ -139,6 +141,7 @@ DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in
 	nIter = 0;
 	verbose = false;
 	result = 0;
+	f = 1;
 	switch (stoppingCriterion)
 	{
 	case -1:
@@ -161,7 +164,13 @@ DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in
 		break;
 	case 6:
 		stop = STOPPING_GROUND_OBJECT;
+	case 7:
+		stop = STOPPING_KKT_DUAL_TOL;
 		break;
+	case 8:
+		stop = STOPPING_LOG;
+		break;
+
 	}
 
 	
@@ -223,6 +232,12 @@ void DALM_solver::allocate_memory()
 	cublasAlloc(m, sizeof(float), (void**) &g);
 	cublasAlloc(n, sizeof(float), (void**) &d_xG);
 }
+void DALM_solver::set_log_file(FILE* input_file)
+{
+	log_file = input_file;
+	// nIter, norm(diff(x)),norm(diff(x))/norm(prev_x),residual,residual/b,f,eps(diff(f))
+	fprintf(log_file, "nIter,norm(diff(x)),eps(diff(x)),residual,eps(residual),f,eps(diff(f))\n");
+}
 void   DALM_solver::solve(float *x,  const float *b, const float *A, const float *xG)
 {
 
@@ -265,7 +280,7 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 	}
 
 	//	f = norm(x,1);
-	f = 0;
+	f = 1;
 	prev_f = 0;
 	total = 0;
 	if (stop == STOPPING_GROUND_OBJECT)
@@ -415,6 +430,30 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 			{
 				converged_main = true;
 			}
+			break;
+		case STOPPING_KKT_DUAL_TOL:
+			cublasSaxpy(n, -1, d_x, 1, x_old, 1);
+			dx = cublasSnrm2(n, x_old, 1);
+			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
+			diff_nrm_b = cublasSasum(m, diff_b, 1);
+			if (diff_nrm_b / nrm_b < tol&&dx<tol2)
+			{
+				converged_main = true;
+			}
+			break;
+		case STOPPING_LOG:
+			prev_f = f;
+			f = cublasSasum(n, d_x, 1);
+			nxo = cublasSnrm2(n, x_old, 1);
+			cublasSaxpy(n, -1, d_x, 1, x_old, 1);
+			dx = cublasSnrm2(n, x_old, 1);
+			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
+			diff_nrm_b = cublasSasum(m, diff_b, 1);
+			fprintf(log_file, "%lf,%lf,%lf,", static_cast<double>(nIter), static_cast<double>(dx), static_cast<double>(dx / nxo));
+			fprintf(log_file, "%lf,%lf,%lf,%lf\n", static_cast<double>(diff_nrm_b), static_cast<double>(diff_nrm_b / nrm_b), static_cast<double>(f), static_cast<double>(fabs((prev_f - f) / prev_f)));
+
 			break;
 		default:
 			mexPrintf("Undefined stopping criterion.");
