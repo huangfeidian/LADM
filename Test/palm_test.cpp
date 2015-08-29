@@ -80,7 +80,7 @@ void test_input_dimension()
 	float opt_G;
 
 	int m, n;
-	for (int k = 1; k < 10; k++)
+	for (int k = 9; k < 10; k++)
 	{
 		m = begin_m * k;
 		n = begin_n * k;
@@ -96,7 +96,7 @@ void test_input_dimension()
 		memset(x, 0, n*sizeof(float));
 		opt_G = generate_test_data<float>(A, x, e, b, m, n, 0.1);
 		cout << "opt:" << opt_G << endl;
-		for (int i = 0; i < m; i++)
+		for (int i = 0; i <m ; i++)
 		{
 			for (int j = 0; j < m; j++)
 			{

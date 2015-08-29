@@ -23,13 +23,13 @@ void test(ofstream& output_file, float* A, float*b, float*in_output_x, float* in
 		std::vector<stream<DeviceType::GPU>> gpu_streams = stream<DeviceType::GPU>::create_streams(block_size + 2, false);
 		multi_seq<DeviceType::GPU, float> seq_gpu_solver(gpu_streams[block_size + 1], block_size + 1, m, 500, 10);
 		seq_gpu_solver.init_memory();
-		seq_gpu_solver.init_server(gpu_streams[block_size + 1], b, lambda);
+		seq_gpu_solver.init_server(gpu_streams[block_size + 1], b, lambda,StopCriteria::kkt_dual_tol);
 		for (int i = 0; i <block_size; i++)
 		{
 			seq_gpu_solver.add_client(gpu_streams[i], n / block_size, FunctionObj<float>(UnaryFunc::Abs), A + m*(n / block_size)*i, false, MatrixMemOrd::COL, output_x + (n / block_size)*i);
 		}
 		seq_gpu_solver.add_client(gpu_streams[block_size], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);
-		seq_gpu_solver.init_parameter(0.01, 0.01, 1, 1000, 1.1);
+		seq_gpu_solver.init_parameter(0.001, 0.15, 1, 10000, 1.1,0.0001);
 		begin = std::chrono::high_resolution_clock::now();
 		seq_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();
@@ -39,13 +39,13 @@ void test(ofstream& output_file, float* A, float*b, float*in_output_x, float* in
 		//multi para
 		multi_para<DeviceType::GPU, float> para_gpu_solver(gpu_streams[block_size + 1], block_size + 1, m, 500, 10);
 		para_gpu_solver.init_memory();
-		para_gpu_solver.init_server(gpu_streams[block_size + 1], b, lambda);
+		para_gpu_solver.init_server(gpu_streams[block_size + 1], b, lambda,StopCriteria::kkt_dual_tol);
 		for (int i = 0; i <block_size; i++)
 		{
 			para_gpu_solver.add_client(gpu_streams[i], n / block_size, FunctionObj<float>(UnaryFunc::Abs), A + m*(n / block_size)*i, false, MatrixMemOrd::COL, output_x + (n / block_size)*i);
 		}
 		para_gpu_solver.add_client(gpu_streams[block_size], m, FunctionObj<float>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e);
-		para_gpu_solver.init_parameter(0.01, 0.01, 1, 1000, 1.1);
+		para_gpu_solver.init_parameter(0.001, 0.15, 1, 10000, 1.1, 0.0001);
 		begin = std::chrono::high_resolution_clock::now();
 		para_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();

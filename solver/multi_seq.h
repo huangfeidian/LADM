@@ -35,11 +35,10 @@ namespace alsm
 				lambda_server.current_iter++;
 				if (lambda_server.current_iter == lambda_server.max_iter)
 				{
-					fprintf(stdout, " max iteration %d is exceed\n", lambda_server.max_iter);
 					work_finished.store(true);
 				}
 			}
-
+			fprintf(stdout, " finished at %d iteration\n", lambda_server.current_iter);
 			for (int i = 0; i < clients_number; i++)
 			{
 				client_streams[i].set_context();

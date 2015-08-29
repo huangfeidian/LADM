@@ -154,19 +154,22 @@ namespace alsm
 				break;
 			case StopCriteria::kkt_dual_tol:
 				{
-					total_x_nrm = 0;
+					
 					total_xdiff_nrm = 0;
 					for (auto i : clients_xdiff_nrm2)
 					{
 						total_xdiff_nrm += (*i)*(*i);
 					}
+					
+					total_xdiff_nrm = sqrt(total_xdiff_nrm);
+					total_x_nrm = sqrt(total_x_nrm);
+					current_eps3 = total_xdiff_nrm /total_x_nrm;
+					total_x_nrm = 0;
 					for (auto i : clients_x_nrm2)
 					{
 						total_x_nrm += (*i)*(*i);
 					}
-					total_xdiff_nrm = sqrt(total_xdiff_nrm);
 					total_x_nrm = sqrt(total_x_nrm);
-					current_eps3 = total_xdiff_nrm ;
 					if (current_eps1 < epsilon_1&&current_eps3 < epsilon_3)
 					{
 						work_finished->store(true);
@@ -175,19 +178,22 @@ namespace alsm
 				break;
 			case StopCriteria::increment:
 				{
-					total_x_nrm = 0;
+					
 					total_xdiff_nrm = 0;
 					for (auto i : clients_xdiff_nrm2)
 					{
 						total_xdiff_nrm += (*i)*(*i);
 					}
+					
+					total_xdiff_nrm = sqrt(total_xdiff_nrm);
+					total_x_nrm = sqrt(total_x_nrm);
+					current_eps3 = total_xdiff_nrm / total_x_nrm;
+					total_x_nrm = 0;
 					for (auto i : clients_x_nrm2)
 					{
 						total_x_nrm += (*i)*(*i);
 					}
-					total_xdiff_nrm = sqrt(total_xdiff_nrm);
 					total_x_nrm = sqrt(total_x_nrm);
-					current_eps3 = total_xdiff_nrm / total_x_nrm;
 					if (current_eps3< epsilon_3)
 					{
 						work_finished->store(true);

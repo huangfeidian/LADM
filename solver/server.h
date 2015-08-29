@@ -65,6 +65,7 @@ namespace alsm
 					work_finished->store(true);
 				}
 			}
+			fprintf(stdout, " finished at %d iteration \n", current_iter);
 			send_sync();
 			recieve_sync();
 		}

@@ -132,12 +132,11 @@ enum stoppingCriteria
 	STOPPING_LOG = 8,//no stop just to log statistic informations
 	STOPPING_DEFAULT = STOPPING_INCREMENTS
 };
-DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda,float in_tol2)
-	:m(in_m), n(in_n), stoppingCriterion(in_stop), tol(in_tol), lambda(in_lambda), tol2(in_tol2)
+DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda,float in_tol2,int in_max_iter)
+	:m(in_m), n(in_n), stoppingCriterion(in_stop), tol(in_tol), lambda(in_lambda), tol2(in_tol2), maxIter(in_max_iter)
 {
 	
 	ldA = m;
-	maxIter = 5000;
 	nIter = 0;
 	verbose = false;
 	result = 0;
@@ -164,6 +163,7 @@ DALM_solver::DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in
 		break;
 	case 6:
 		stop = STOPPING_GROUND_OBJECT;
+		break;
 	case 7:
 		stop = STOPPING_KKT_DUAL_TOL;
 		break;
@@ -384,7 +384,7 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 			//          converged_main =  ~(criterionObjective > tol);
 			prev_f = f;
 			f = cublasSasum(n, d_x, 1);
-			if (fabs(f - prev_f) / prev_f <= tol)
+			if (fabs(f - prev_f)  <= tol*prev_f)
 			{
 				converged_main = true;
 			}
@@ -393,7 +393,7 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
 			diff_nrm_b = cublasSasum(m, diff_b, 1);
-			if (diff_nrm_b / nrm_b < tol)
+			if (diff_nrm_b  < tol*nrm_b)
 			{
 				converged_main = true;
 			}
@@ -426,18 +426,19 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 			break;
 		case STOPPING_GROUND_OBJECT:
 			f = cublasSasum(n, d_x, 1);
-			if (fabs(f - prev_f) / prev_f <= tol)
+			if (fabs(f - prev_f)<= tol*prev_f)
 			{
 				converged_main = true;
 			}
 			break;
 		case STOPPING_KKT_DUAL_TOL:
+			nxo = cublasSnrm2(n, x_old, 1);
 			cublasSaxpy(n, -1, d_x, 1, x_old, 1);
 			dx = cublasSnrm2(n, x_old, 1);
 			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
 			diff_nrm_b = cublasSasum(m, diff_b, 1);
-			if (diff_nrm_b / nrm_b < tol&&dx<tol2)
+			if (diff_nrm_b  < tol*nrm_b&&dx<tol2*nxo)
 			{
 				converged_main = true;
 			}
@@ -445,7 +446,7 @@ void   DALM_solver::solve(float *x,  const float *b, const float *A, const float
 		case STOPPING_LOG:
 			prev_f = f;
 			f = cublasSasum(n, d_x, 1);
-			nxo = cublasSnrm2(n, x_old, 1);
+			
 			cublasSaxpy(n, -1, d_x, 1, x_old, 1);
 			dx = cublasSnrm2(n, x_old, 1);
 			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);

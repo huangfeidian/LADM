@@ -24,7 +24,7 @@ public:
 	int num_devices, device, max_threads;
 	FILE* log_file;
 	
-	DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda,float in_tol2=0.001);
+	DALM_solver(int in_m, int in_n, int in_stop, float in_tol, float in_lambda,float in_tol2=0.001,int in_max_iter=5000);
 	void set_log_file(FILE* input_file);
 	void allocate_memory();
 	void solve(float* x,  const float* b, const float* A, const float* xG);

@@ -46,7 +46,7 @@ public:
 	// 
 	void solve( float *b, float *x, float *e, float tol=1E-6, float tol_int=1E-6, int maxIter=50, int maxIter_alt=50, int stoppingcriterion=5, const float *xG=nullptr,float tol2=0.01); 
 
-protected:
+public:
 
 	float tau, tauInv;
 	float *d_b, *d_xe, *d_old_xe, *d_A, *d_temp, *d_temp1, *d_temp2, *d_x, *d_e, *d_z, *d_G, *d_Gx, *d_Gz, *d_s, *d_Gx_old;
@@ -57,7 +57,10 @@ protected:
 	float nrm_b;
 	float diff_nrm_b;
 	
-
+	float dx, nxo, neo, de;
+	int nIter_apg;
+	float mu, t1, t2,  muInv, muTauInv;
+	bool converged_main, converged_apg;
 	float eps;
 
 };

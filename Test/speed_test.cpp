@@ -9,8 +9,8 @@ using namespace std;
 using namespace alsm;
 template <typename T>
 #define EPS1 0.001
-#define EPS2 0.01
-#define EPS3 0.005
+#define EPS2 0.05
+#define EPS3 0.0001
 void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_opt,StopCriteria how_stop)
 {
 
@@ -29,7 +29,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	T norm_diff_b;
 	T residual_error;
 	T current_opt;
-	T opt_error;
+	T xdiff_error;
 	nrm2<DeviceType::CPU, T>(result_stream, m, b, &norm_b);
 #if 1
 	int PALM_DALM_stop;
@@ -162,7 +162,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		memset(lambda,0, sizeof(T)*m);
 		memset(result_b, 0, sizeof(T)*m);
 		std::vector<stream<DeviceType::GPU>> multi_gpu_streams = stream<DeviceType::GPU>::create_streams(block_size + 2, true);
-		multi_seq<DeviceType::GPU, T> multi_seq_gpu_solver(multi_gpu_streams[block_size + 1], block_size + 1, m, 5000, 10);
+		multi_seq<DeviceType::GPU, T> multi_seq_gpu_solver(multi_gpu_streams[block_size + 1], block_size + 1, m, 10000, 10);
 		multi_seq_gpu_solver.init_memory();
 		multi_seq_gpu_solver.init_server(multi_gpu_streams[block_size + 1], b, lambda, how_stop, target_opt);
 		for (int i = 0; i <block_size; i++)
@@ -171,7 +171,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 				MatrixMemOrd::COL, output_x + (n / block_size)*i,0, output_xG + (n / block_size)*i);
 		}
 		multi_seq_gpu_solver.add_client(multi_gpu_streams[block_size], m, FunctionObj<T>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e,0,output_xG+n);
-		multi_seq_gpu_solver.init_parameter(EPS1, EPS2,m*0.004, 1000, 1.1,EPS3);
+		multi_seq_gpu_solver.init_parameter(EPS1, EPS2,1, 10000, 1.1,EPS3);
 		begin = std::chrono::high_resolution_clock::now();
 		multi_seq_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();
@@ -182,16 +182,16 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		nrm2<DeviceType::CPU, T>(result_stream, m, result_b, &norm_diff_b);
 		residual_error = norm_diff_b / norm_b;
 		asum<DeviceType::CPU, T>(result_stream, m + n, output, &current_opt);
-		opt_error = fabs(current_opt - target_opt) / target_opt;
+		xdiff_error = multi_seq_gpu_solver.lambda_server.epsilon_3;
 		output_file << "MULTI GPU SEQ" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error << 
-			","<<opt_error<<"," << current_opt << endl;
+			","<<xdiff_error<<"," << current_opt << endl;
 		cout << "MULTI GPU SEQ" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-			"," << opt_error << "," << current_opt << endl;
+			"," << xdiff_error << "," << current_opt << endl;
 		alsm_free_all();
-#if 0
+#if 1
 		memset(output, 0, sizeof(T)*(m + n));
 		memset(lambda,0, sizeof(T)*m);
-		multi_para<DeviceType::GPU, T> multi_para_gpu_solver(multi_gpu_streams[block_size + 1], block_size + 1, m, 5000, 10);
+		multi_para<DeviceType::GPU, T> multi_para_gpu_solver(multi_gpu_streams[block_size + 1], block_size + 1, m, 10000, 10);
 		multi_para_gpu_solver.init_memory();
 		multi_para_gpu_solver.init_server(multi_gpu_streams[block_size + 1], b, lambda, how_stop, target_opt);
 		for (int i = 0; i <block_size; i++)
@@ -200,7 +200,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 				MatrixMemOrd::COL, output_x + (n / block_size)*i, 0, output_xG + (n / block_size)*i);
 		}
 		multi_para_gpu_solver.add_client(multi_gpu_streams[block_size], m, FunctionObj<T>(UnaryFunc::Abs), nullptr, true, MatrixMemOrd::COL, output_e,0,output_xG+n);
-		multi_para_gpu_solver.init_parameter(EPS1, EPS2, m*0.004, 1000, 1.1,EPS3);
+		multi_para_gpu_solver.init_parameter(EPS1, EPS2, 1, 10000, 1.1,EPS3);
 		begin = std::chrono::high_resolution_clock::now();
 		multi_para_gpu_solver.solve();
 		end = std::chrono::high_resolution_clock::now();
@@ -211,11 +211,11 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 		nrm2<DeviceType::CPU, T>(result_stream, m, result_b, &norm_diff_b);
 		residual_error = norm_diff_b / norm_b;
 		asum<DeviceType::CPU, T>(result_stream, m + n, output, &current_opt);
-		opt_error = fabs(current_opt - target_opt) / target_opt;
+		xdiff_error = multi_para_gpu_solver.lambda_server.epsilon_3;
 		output_file << "MULTI GPU para" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-			"," << opt_error << "," << current_opt << endl;
+			"," << xdiff_error << "," << current_opt << endl;
 		cout << "MULTI GPU para" << "," << block_size << "," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-			"," << opt_error << "," << current_opt << endl;
+			"," << xdiff_error << "," << current_opt << endl;
 		alsm_free_all();
 #endif
 		for (auto i : multi_gpu_streams)
@@ -244,18 +244,19 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	nrm2<DeviceType::CPU, T>(result_stream, m, result_b, &norm_diff_b);
 	residual_error = norm_diff_b / norm_b;
 	asum<DeviceType::CPU, T>(result_stream, m + n, output, &current_opt);
-	opt_error = fabs(current_opt - target_opt) / target_opt;
+	xdiff_error = PLAM_solver.dx / PLAM_solver.nxo;
+	
 	output_file << "PALM" << ",0 ," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-		"," << opt_error << "," << current_opt << endl;
+		"," << xdiff_error << "," << current_opt << endl;
 	cout << "PALM" << ",0 ," << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-		"," << opt_error << "," << current_opt << endl;
+		"," << xdiff_error << "," << current_opt << endl;
 	PLAM_solver.free_memory();
 #endif
 	// DLAM
-#if 0
+#if 1
 	memset(output, 0, sizeof(T)*(m + n));
 	memset(lambda, 0, sizeof(T)*m);
-	DALM_solver dalm_solver(m, n+m,PALM_DALM_stop,EPS3,0.01);
+	DALM_solver dalm_solver(m, n+m,PALM_DALM_stop,EPS1,0.000001,EPS3,10000);
 	dalm_solver.allocate_memory();
 	begin = std::chrono::high_resolution_clock::now();
 	
@@ -268,11 +269,11 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 	nrm2<DeviceType::CPU, T>(result_stream, m, result_b, &norm_diff_b);
 	residual_error = norm_diff_b / norm_b;
 	asum<DeviceType::CPU, T>(result_stream, m + n, output, &current_opt);
-	opt_error = fabs(current_opt - target_opt) / target_opt;
+	xdiff_error = dalm_solver.dx / dalm_solver.nxo;
 	output_file << "DALM" << ",0 ,"  << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-		"," << opt_error << "," << current_opt << endl;
+		"," << xdiff_error<< "," << current_opt << endl;
 	cout << "DALM" <<  ",0 ,"  << m << "," << n << "," << elapsed.count() << "," << residual_error <<
-		"," << opt_error << "," << current_opt << endl;
+		"," << xdiff_error<< "," << current_opt << endl;
 	dalm_solver.free_memory();
 #endif 
 	delete [] output;
@@ -289,7 +290,7 @@ int main()
 	float* xG;
 	float opt_G;
 	ofstream output("speedtest.csv");
-	output << "type,block_size,m,n,time,residual_eps,opt_eps,opt" << endl;
+	output << "type,block_size,m,n,time,residual_eps,xdiff_eps,opt" << endl;
 	for (int i = 1; i < 12; i++)
 	{
 		int m, n;

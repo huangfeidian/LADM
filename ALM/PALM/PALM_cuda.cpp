@@ -186,10 +186,7 @@ void L1Solver_e1x1::set_A(float *A)
 }
 void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int, int maxIter, int maxIter_alt, int stoppingCriterion, const float *xG,float tol2)
 {
-	float dx, nxo, neo, de;
-	int nIter_apg;
-	float mu, t1, t2, tauInv, muInv, muTauInv;
-	bool converged_main, converged_apg;
+	
 
 	int ldA = m;
 	int ldG = n;
@@ -515,7 +512,7 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 			nxo = cublasSnrm2(n + m, d_old_xe, 1);
 			cublasSaxpy(n + m, -1, d_xe, 1, d_temp1, 1);
 			dx = cublasSnrm2(n + m, d_temp1, 1);
-			if (diff_nrm_b / nrm_b < tol&&dx<tol2)
+			if (diff_nrm_b< tol*nrm_b&&dx<tol2*nxo)
 			{
 				converged_main = true;
 			}
@@ -571,6 +568,7 @@ void L1Solver_e1x1::solve(float *b, float *x, float *e, float tol, float tol_int
 			converged_main = true;
 		}
 	}
+	fprintf(stdout, " finished at  %d inner iter and %d out iter\n",nIter_alt_total, nIter);
 	cublasGetVector(n, sizeof(float), d_x, 1, x, 1);
 	cublasGetVector(m, sizeof(float), d_e, 1, e, 1);
 }
