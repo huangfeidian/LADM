@@ -391,9 +391,10 @@ void   dalmSsolver::solve(float *x,  const float *b, const float *A, const float
 			}
 			break;
 		case STOPPING_DUALITY_GAP:
-			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasSgemv('N', m, n , 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			
 			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasSasum(m, diff_b, 1);
+			diff_nrm_b = cublasSnrm2(m, diff_b, 1);
 			if (diff_nrm_b  < tol*nrm_b)
 			{
 				converged_main = true;
@@ -438,7 +439,7 @@ void   dalmSsolver::solve(float *x,  const float *b, const float *A, const float
 			dx = cublasSnrm2(n, x_old, 1);
 			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasSasum(m, diff_b, 1);
+			diff_nrm_b = cublasSnrm2(m, diff_b, 1);
 			if (diff_nrm_b  < tol*nrm_b&&dx<tol2*nxo)
 			{
 				converged_main = true;
@@ -450,9 +451,9 @@ void   dalmSsolver::solve(float *x,  const float *b, const float *A, const float
 			nxo = cublasSnrm2(n, x_old, 1);
 			cublasSaxpy(n, -1, d_x, 1, x_old, 1);
 			dx = cublasSnrm2(n, x_old, 1);
-			cublasSgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasSgemv('N', m, n , 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasSaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasSasum(m, diff_b, 1);
+			diff_nrm_b = cublasSnrm2(m, diff_b, 1);
 			fprintf(log_file, "%lf,%lf,%lf,", static_cast<double>(nIter), static_cast<double>(dx), static_cast<double>(dx / nxo));
 			fprintf(log_file, "%lf,%lf,%lf,%lf\n", static_cast<double>(diff_nrm_b), static_cast<double>(diff_nrm_b / nrm_b), static_cast<double>(f), static_cast<double>(fabs((prev_f - f) / prev_f)));
 
@@ -492,7 +493,7 @@ void dalmSsolver::free_memory()
 	cublasFree(temp);
 	cublasFree(temp1);
 	cublasFree(d_xG);
-
+	cublasFree(diff_b);
 
 	cublasShutdown();
 }
@@ -764,9 +765,9 @@ void   dalmDsolver::solve(double *x, const double *b, const double *A, const dou
 			}
 			break;
 		case STOPPING_DUALITY_GAP:
-			cublasDgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasDgemv('N', m, n , 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasDaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasDasum(m, diff_b, 1);
+			diff_nrm_b = cublasDnrm2(m, diff_b, 1);
 			if (diff_nrm_b  < tol*nrm_b)
 			{
 				converged_main = true;
@@ -809,9 +810,9 @@ void   dalmDsolver::solve(double *x, const double *b, const double *A, const dou
 			nxo = cublasDnrm2(n, x_old, 1);
 			cublasDaxpy(n, -1, d_x, 1, x_old, 1);
 			dx = cublasDnrm2(n, x_old, 1);
-			cublasDgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasDgemv('N', m, n , 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasDaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasDasum(m, diff_b, 1);
+			diff_nrm_b = cublasDnrm2(m, diff_b, 1);
 			if (diff_nrm_b  < tol*nrm_b&&dx<tol2*nxo)
 			{
 				converged_main = true;
@@ -824,9 +825,9 @@ void   dalmDsolver::solve(double *x, const double *b, const double *A, const dou
 
 			cublasDaxpy(n, -1, d_x, 1, x_old, 1);
 			dx = cublasDnrm2(n, x_old, 1);
-			cublasDgemv('N', m, n, 1, d_A, m, d_x, 1, 0, diff_b, 1);
+			cublasDgemv('N', m, n , 1, d_A, m, d_x, 1, 0, diff_b, 1);
 			cublasDaxpy(m, -1, d_b, 1, diff_b, 1);
-			diff_nrm_b = cublasDasum(m, diff_b, 1);
+			diff_nrm_b = cublasDnrm2(m, diff_b, 1);
 			fprintf(log_file, "%lf,%lf,%lf,", static_cast<double>(nIter), static_cast<double>(dx), static_cast<double>(dx / nxo));
 			fprintf(log_file, "%lf,%lf,%lf,%lf\n", static_cast<double>(diff_nrm_b), static_cast<double>(diff_nrm_b / nrm_b), static_cast<double>(f), static_cast<double>(fabs((prev_f - f) / prev_f)));
 
@@ -866,7 +867,7 @@ void dalmDsolver::free_memory()
 	cublasFree(temp);
 	cublasFree(temp1);
 	cublasFree(d_xG);
-
+	cublasFree(diff_b);
 
 	cublasShutdown();
 }

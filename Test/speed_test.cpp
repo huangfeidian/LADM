@@ -231,7 +231,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 #if 1
 	memset(output, 0, sizeof(T)*(m + n));
 	memset(lambda, 0, sizeof(T)*m);
-	L1Solver_e1x1 PLAM_solver(m, n);
+	palmSsolver PLAM_solver(m, n);
 	begin = std::chrono::high_resolution_clock::now();
 	PLAM_solver.set_A(A);
 	PLAM_solver.solve(b, output_x, output_e, EPS1, 0.00001, 1000, 50, PALM_DALM_stop, output_xG,EPS3);
@@ -256,7 +256,7 @@ void test(ofstream& output_file,T* A, T*b,T* output_xG, int m, int n,T target_op
 #if 1
 	memset(output, 0, sizeof(T)*(m + n));
 	memset(lambda, 0, sizeof(T)*m);
-	DALM_solver dalm_solver(m, n+m,PALM_DALM_stop,EPS1,0.000001,EPS3,10000);
+	dalmSsolver dalm_solver(m, n+m,7,EPS1,0.000001,EPS3,10000);
 	dalm_solver.allocate_memory();
 	begin = std::chrono::high_resolution_clock::now();
 	
@@ -291,11 +291,11 @@ int main()
 	float opt_G;
 	ofstream output("speedtest.csv");
 	output << "type,block_size,m,n,time,residual_eps,xdiff_eps,opt" << endl;
-	for (int i = 1; i < 12; i++)
+	for (int k = 1; k < 11; k++)
 	{
 		int m, n;
-		m = begin_m*i;
-		n = begin_n*i;
+		m = begin_m*k;
+		n = begin_n*k;
 		A = new float[m*(n+m)];
 		b = new float[m];
 
@@ -327,7 +327,7 @@ int main()
 		delete [] A;
 		delete [] b;
 		delete [] xG;
-		cout << "round " << i << " finished" << endl;
+		cout << "round " << k<< " finished" << endl;
 
 	}
 }
